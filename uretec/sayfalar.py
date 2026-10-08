@@ -5,7 +5,7 @@ from datetime import timedelta
 from .baglam import Baglam
 from .bilgi import BilgiSayfasi, bilgi_sayfasi_parcalari
 from .ilan_sayfasi import ilan_basliklari, ilan_sayfasi, kisalt
-from .jsonld import ekmek_kirintisi, organizasyon, web_sitesi
+from .jsonld import ekmek_kirintisi, varlik_grafigi
 from .merkezler import Merkez, MerkezVerisi
 from .metin import sayi_tr
 from .model import Ilan, kisa_kurum_adi
@@ -19,6 +19,8 @@ from .sablon import (
     kirinti,
     siki_liste,
     uygulama_cagrisi,
+    zaman,
+    zaman_araligi,
 )
 
 __all__ = [
@@ -31,21 +33,38 @@ ANA_SAYFA_KURUM_ADET = 12
 DIZIN_SEHIR_ILK = 12
 YAKLASAN_ADET = 6
 YAKLASAN_GUN = 7
+YENI_GUN = 7
+HAKKINDA_YOLU = "/hakkinda/"
 _KPSS_TURLERI = frozenset({"Memur", "Sözleşmeli Personel", "İşçi"})
 
 
-def _sayilar_cumlesi(ilanlar: tuple[Ilan, ...] | list[Ilan], b: Baglam, bugun_on_ek: bool) -> str:
-    """"Bugün 104 açık ilan ve toplam 2.950 kadro var. Son 7 günde 33 yeni ilan eklendi."."""
+def _sayilar_cumlesi(ilanlar: tuple[Ilan, ...] | list[Ilan], b: Baglam, ozne: str = "") -> str:
+    """Tarihli ve özneli manşet: "8 Ekim 2026 itibarıyla KPSS P3 puanı isteyen 22 açık kamu
+    ilanı ve toplam 206 kadro var. 1-8 Ekim 2026 arasında 4 yeni ilan eklendi."."""
+    tarih = zaman(b.bugun)
+    on_ek = f"{e(ozne)} " if ozne else ""
     if not ilanlar:
-        return "Şu an açık ilan yok."
+        return f"{tarih} itibarıyla {on_ek}açık kamu ilanı yok."
     kadro = sum(i.kisi_sayisi or 0 for i in ilanlar)
-    yeni = sum(1 for i in ilanlar if i.eklenme_tarihi >= b.simdi - timedelta(days=7))
-    bas = "Bugün " if bugun_on_ek else ""
-    cumle = f"{bas}<b>{sayi_tr(len(ilanlar))}</b> açık ilan"
+    yeni = sum(1 for i in ilanlar if i.eklenme_tarihi >= b.simdi - timedelta(days=YENI_GUN))
+    cumle = f"{tarih} itibarıyla {on_ek}<b>{sayi_tr(len(ilanlar))}</b> açık kamu ilanı"
     cumle += f" ve toplam <b>{sayi_tr(kadro)}</b> kadro var." if kadro else " var."
     if yeni:
-        cumle += f" Son 7 günde <b>{sayi_tr(yeni)}</b> yeni ilan eklendi."
+        aralik = zaman_araligi(b.bugun - timedelta(days=YENI_GUN), b.bugun)
+        cumle += f" {aralik} arasında <b>{sayi_tr(yeni)}</b> yeni ilan eklendi."
     return cumle
+
+
+def _kurum_cevabi(ad: str, ilanlar: tuple[Ilan, ...], b: Baglam) -> str:
+    """Kurum sayfasında doğrudan cevap; ek gerektirmeyen "Ad: ..." kalıbı."""
+    tarih = zaman(b.bugun)
+    if not ilanlar:
+        return f"{e(ad)}: {tarih} itibarıyla açık personel alım ilanı yok."
+    yakin = min(ilanlar, key=lambda i: (i.basvuru_bitis, i.id))
+    return (
+        f"{e(ad)}: {tarih} itibarıyla <b>{sayi_tr(len(ilanlar))}</b> açık personel alım ilanı "
+        f"var; en yakın son başvuru {zaman(yakin.basvuru_bitis)}."
+    )
 
 
 # --- Merkez sayfası ----------------------------------------------------------
@@ -112,6 +131,10 @@ def merkez_sayfasi(
     ulusal: list[Ilan] | None = None,
 ) -> str:
     merkez = veri.merkez
+    if merkez.grup == "kurum":
+        manset = _kurum_cevabi(merkez.ad, veri.acik, b)
+    else:
+        manset = _sayilar_cumlesi(veri.acik, b, merkez.ozne)
     uyari = f'<p class="uyari-not" role="note">{e(merkez.uyari)}</p>' if merkez.uyari else ""
     cagri = uygulama_cagrisi(
         "Yeni ilan çıkınca haberin olsun",
@@ -123,7 +146,7 @@ def merkez_sayfasi(
     govde = (
         f"{kirinti([('Ana sayfa', '/'), (merkez.h1, merkez.yol)])}"
         '<section class="manset merkez-manset"><div>'
-        f'<h1>{e(merkez.h1)}</h1><p class="manset-satir">{_sayilar_cumlesi(veri.acik, b, False)}</p>'
+        f'<h1>{e(merkez.h1)}</h1><p class="manset-satir">{manset}</p>'
         "</div></section>"
         f'<p class="giris">{e(merkez.giris)}</p>{uyari}{_ozet_html(veri, b)}'
         '<div class="merkez-izgara">'
@@ -238,7 +261,7 @@ def ana_sayfa(acik: list[Ilan], b: Baglam, veriler: list[MerkezVerisi]) -> str:
     )
     govde = (
         '<section class="manset"><div><h1>Kamu ilanları, son başvuru kaçmadan</h1>'
-        f'<p class="manset-satir">{_sayilar_cumlesi(acik, b, True)}</p>'
+        f'<p class="manset-satir">{_sayilar_cumlesi(acik, b)}</p>'
         '<p class="giris">Her ilanın kadrosunu, şartlarını ve son gününü tek sayfada gör; '
         "yeni ilan çıkınca uygulama haber versin.</p>"
         f"</div>{cagri}</section>"
@@ -255,14 +278,17 @@ def ana_sayfa(acik: list[Ilan], b: Baglam, veriler: list[MerkezVerisi]) -> str:
         yol="/",
         kampanya=KAMPANYA_ANA,
     )
-    return b.sayfa(bas, govde, (web_sitesi(), organizasyon()))
+    return b.sayfa(bas, govde, (varlik_grafigi(),))
 
 
 # --- Bilgi sayfaları ve 404 ---------------------------------------------------
 
 def bilgi_sayfasi(bilgi: BilgiSayfasi, b: Baglam) -> str:
     bas, govde, kirinti_ogeleri = bilgi_sayfasi_parcalari(bilgi)
-    return b.sayfa(bas, govde, (ekmek_kirintisi(kirinti_ogeleri),))
+    jsonld: tuple[dict, ...] = (ekmek_kirintisi(kirinti_ogeleri),)
+    if bilgi.yol == HAKKINDA_YOLU:
+        jsonld = (varlik_grafigi(HAKKINDA_YOLU),) + jsonld
+    return b.sayfa(bas, govde, jsonld)
 
 
 def sayfa_404(b: Baglam) -> str:

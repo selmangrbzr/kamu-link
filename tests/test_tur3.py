@@ -176,7 +176,7 @@ def test_tek_kurumlu_merkezde_hepsi_cumlesi_ve_kucuk_alimda_buyuk_cumlesi_yok():
     ozet = ozet_metni(sayfa)
     assert "Buradaki ilanların hepsi Bankacılık Düzenleme ve Denetleme Kurumu Başkanlığı'ndan." in ozet
     assert "En çok kadro" not in ozet
-    assert "En yakın son başvuru 2 Kasım'da" in ozet
+    assert "En yakın son başvuru 2 Kasım 2026'da" in ozet
 
 
 def test_sehir_ve_kurum_ozetleri_sayfalar_arasinda_birebir_ayni_degil():
@@ -188,7 +188,7 @@ def test_sehir_ve_kurum_ozetleri_sayfalar_arasinda_birebir_ayni_degil():
     assert all(ozetler.values()), ozetler
     assert len(set(ozetler.values())) == len(yollar)
     # Cümleler veriye bağlı: şehirde tür dağılımı ve lise sayısı, kurumda geçmiş ilan sayısı.
-    assert "Açık ilanlar: 2 akademik, 1 sözleşmeli, 1 memur." in ozetler["/sehir/ankara/"]
+    assert "Açık ilanlar: 2 akademik, 1 memur, 1 sözleşmeli." in ozetler["/sehir/ankara/"]
     assert "Lise mezunlarına açık 1 ilan var." in ozetler["/sehir/ankara/"]
     assert "Son 60 günde 1 ilanın başvurusu kapandı." in ozetler["/sehir/izmir/"]
     assert "Son 60 günde 3 ilan verdi" in ozetler["/kurum/ege-universitesi/"]

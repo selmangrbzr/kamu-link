@@ -10,12 +10,14 @@ from datetime import date
 from .baglam import Baglam
 from .jsonld import ekmek_kirintisi, is_ilani
 from .metin import (
+    bulunma_eki,
+    katla,
+    sayi_bulunma_eki,
     cumle_duzeni,
     kalan_gun_metni,
     sart_parcalari,
     sayi_tr,
     tarih_araligi_tr,
-    tarih_de,
     tarih_i,
     tarih_tr,
     tr_kucuk,
@@ -31,6 +33,7 @@ from .sablon import (
     kirinti,
     rozet,
     uygulama_cagrisi,
+    zaman,
 )
 
 ACIKLAMA_EN_UZUN = 158
@@ -144,7 +147,55 @@ def _ilan_ozeti(ilan: Ilan, b: Baglam, acik: bool) -> str:
         )
     else:
         cumleler.append(f"Son başvuru tarihi {bitis}.")
+    cumleler += [c for c in (sart_cumlesi(ilan), basvuru_yolu_cumlesi(ilan), il_dagilimi_cumlesi(ilan)) if c]
     return f'<p class="ilan-ozet">{e(" ".join(cumleler))}</p>'
+
+
+def sart_cumlesi(ilan: Ilan) -> str | None:
+    """"Eğitim şartı lisans; KPSS puan türü P3; yaş sınırı 35 altı." (hangisi varsa)."""
+    parcalar = []
+    if ilan.egitim_seviyesi:
+        parcalar.append(f"eğitim şartı {tr_kucuk(ilan.egitim_seviyesi)}")
+    if ilan.kpss_puan_turu:
+        parcalar.append(f"KPSS puan türü {ilan.kpss_puan_turu}")
+    if ilan.ales_puan_turu:
+        ales = f"ALES puan türü {ilan.ales_puan_turu}"
+        if ilan.ales_min_puan:
+            ales += f", en az {ilan.ales_min_puan:g}"
+        parcalar.append(ales)
+    if ilan.yas_siniri:
+        parcalar.append(f"yaş sınırı {ilan.yas_siniri}")
+    if not parcalar:
+        return None
+    metin = "; ".join(parcalar)
+    return metin[:1].upper() + metin[1:] + "."
+
+
+def basvuru_yolu_cumlesi(ilan: Ilan) -> str | None:
+    """Yalnızca tanınan başvuru kalıplarında cümle kurar; tanınmazsa None."""
+    yer = katla(ilan.basvuru_yeri or "")
+    if not yer:
+        return None
+    if "osym" in yer:
+        return "Başvuru ÖSYM üzerinden yapılıyor."
+    if "e-devlet" in yer or "edevlet" in yer or "kariyer kapisi" in yer:
+        return "Başvuru e-Devlet'te Kariyer Kapısı üzerinden yapılıyor."
+    if "sahsen" in yer or "posta" in yer:
+        return "Başvuru şahsen ya da posta ile yapılıyor."
+    return None
+
+
+def il_dagilimi_cumlesi(ilan: Ilan) -> str | None:
+    """Çok illi ilanda: "Kadrolar 80 ile dağılıyor; en çok kadro Ankara'da (132)."."""
+    sehirli = [k for k in ilan.kontenjan if k.sehir]
+    iller = {k.sehir for k in sehirli}
+    if len(iller) < 2 or len(sehirli) != len(ilan.kontenjan) or not ilan.kontenjan_adetleri_tutarli:
+        return None
+    en_cok = max(sehirli, key=lambda k: (k.adet or 0, k.sehir or ""))
+    return (
+        f"Kadrolar {len(iller)} ile dağılıyor; en çok kadro "
+        f"{bulunma_eki(en_cok.sehir or '')} ({sayi_tr(en_cok.adet or 0)})."
+    )
 
 
 def _baslik_blogu(ilan: Ilan, b: Baglam, acik: bool) -> str:
@@ -164,7 +215,7 @@ def _baslik_blogu(ilan: Ilan, b: Baglam, acik: bool) -> str:
         f'<header class="ilan-bas">{kurum}<h1>{e(ilan.is_basligi)} alımı</h1>'
         '<p class="ilan-meta">'
         f'<span class="tur" data-tur="{ilan.tur_kodu}">{e(ilan.tur_etiketi)} ilanı</span>'
-        f"<span>{tarih_de(ilan.eklenme_gunu)} eklendi</span>"
+        f"<span>{zaman(ilan.eklenme_gunu)}'{sayi_bulunma_eki(ilan.eklenme_gunu.year)} eklendi</span>"
         "<span>Kaynak: kamuilan.sbb.gov.tr</span></p>"
         f"{acil}{durum}{_ilan_ozeti(ilan, b, acik)}</header>"
     )

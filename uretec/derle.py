@@ -5,12 +5,13 @@ yaz() sonucu _site/ klasörüne döker ve statik dosyaları kopyalar.
 """
 
 import dataclasses
+import json
 from collections import Counter
 import logging
 import shutil
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape as xml_escape
@@ -45,6 +46,8 @@ KAPANAN_ADET = 10
 # (eksik çekim yüzlerce sayfayı silmesin). URETEC_EN_AZ_ACIK_ILAN ile değiştirilebilir.
 EN_AZ_ACIK_ILAN = 20
 CIKTI_ADI = "_site"
+MANIFEST_ADI = ".indexnow.json"
+LF = chr(10)  # Windows yerel derlemede de satır sonları LF olsun
 KOK = Path(__file__).resolve().parent.parent
 STATIK = Path(__file__).resolve().parent / "statik"
 # Repo kökünden olduğu gibi kopyalanan dosyalar (/ig yönlendirmesi dahil).
@@ -119,7 +122,8 @@ def _kurum_merkezleri(acik: list[Ilan]) -> list[Merkez]:
 
 def merkez_verileri(sayfali: list[Ilan], acik: list[Ilan], simdi: datetime) -> list[MerkezVerisi]:
     """Üretilecek merkezler: kalıcı olanlar boş da olsa, diğerleri açık ilanı varsa."""
-    kapanmis = [i for i in sayfali if i not in set(acik)]
+    acik_kimlikler = {i.id for i in acik}
+    kapanmis = [i for i in sayfali if i.id not in acik_kimlikler]
     kapanmis.sort(key=lambda i: (i.basvuru_bitis, i.id), reverse=True)
     sonuc = []
     adaylar = [*SABIT_MERKEZLER, *sehir_merkezleri(), *_kurum_merkezleri(acik)]
@@ -190,7 +194,7 @@ def derle(
         derleme.sayfalar[merkez.yol] = merkez_sayfasi(veri, baglam, digerleri, ulusal)
         if veri.indekslenebilir:
             derleme.merkezler.append(merkez.yol)
-            derleme.sitemap.append((merkez.yol, simdi))  # merkez içeriği her derlemede yenilenir
+            derleme.sitemap.append((merkez.yol, kume_zamani(veri.acik, veri.kapanan, simdi)))
         else:
             derleme.noindex_merkezler.append(merkez.yol)
 
@@ -200,9 +204,18 @@ def derle(
         derleme.sitemap.append((bilgi.yol, bilgi_zamani))
 
     derleme.sayfalar["/"] = ana_sayfa(acik, baglam, veriler)
-    derleme.sitemap.insert(0, ("/", simdi))
+    tum_kapanan = [i for i in sayfali if i.basvuru_bitis < bugun]
+    derleme.sitemap.insert(0, ("/", kume_zamani(acik, tum_kapanan, simdi)))
     derleme.sayfalar["/404.html"] = sayfa_404(baglam)
     return derleme
+
+
+def sitemap_manifesti(girdiler: list[tuple[str, datetime]]) -> str:
+    """IndexNow karşılaştırması için {url: lastmod} JSON'u (yayına çıkmaz, nokta ile başlar)."""
+    return json.dumps(
+        {SITE_URL + yol: zaman.replace(microsecond=0).isoformat() for yol, zaman in girdiler},
+        ensure_ascii=False, indent=0, sort_keys=True,
+    )
 
 
 def sitemap_xml(girdiler: list[tuple[str, datetime]]) -> str:
@@ -218,8 +231,57 @@ def sitemap_xml(girdiler: list[tuple[str, datetime]]) -> str:
     )
 
 
+ROBOTS_TXT = f"""# kamuuygulama.me
+# Arama, cevap motoru ve eğitim tarayıcılarının hepsine açık.
+# Kendi grubu olan bot "*" grubunu okumaz; bu yüzden her grupta Allow: / var.
+
+User-agent: *
+Allow: /
+
+# Arama ve cevap motoru dizinleri
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: Applebot
+User-agent: OAI-SearchBot
+User-agent: PerplexityBot
+User-agent: Claude-SearchBot
+Allow: /
+
+# Kullanıcı isteğiyle sayfa açan ajanlar
+User-agent: ChatGPT-User
+User-agent: Claude-User
+User-agent: Perplexity-User
+Allow: /
+
+# Model eğitimi: marka ve ilan verisi model belleğine girebilsin diye açık
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+Allow: /
+
+Sitemap: {SITE_URL}/sitemap.xml
+"""
+
+
 def robots_txt() -> str:
-    return f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n"
+    return ROBOTS_TXT
+
+
+def kume_zamani(acik: Iterable[Ilan], kapanan: Iterable[Ilan], simdi: datetime) -> datetime:
+    """Bir ilan kümesinin son değiştiği an (sitemap lastmod).
+
+    Küme iki yolla değişir: yeni ilan eklenir (eklenme_tarihi) ya da bir ilanın
+    son başvurusu geçer (bitişin ertesi günü 00:00, Türkiye saati). Her derlemede
+    "şimdi" yazılmaz; böylece IndexNow yalnızca gerçekten değişen adresleri bildirir.
+    """
+    adaylar = [i.eklenme_tarihi for i in acik]
+    adaylar += [
+        datetime.combine(i.basvuru_bitis + timedelta(days=1), time(), tzinfo=TR_SAAT)
+        for i in kapanan
+    ]
+    return min(max(adaylar), simdi) if adaylar else simdi
 
 
 def _dosya_yolu(cikti: Path, yol: str) -> Path:
@@ -261,9 +323,10 @@ def yaz(derleme: Derleme, cikti: Path, kok: Path = KOK) -> None:
     for yol, icerik in derleme.sayfalar.items():
         dosya = _dosya_yolu(cikti, yol)
         dosya.parent.mkdir(parents=True, exist_ok=True)
-        dosya.write_text(icerik, encoding="utf-8")
-    (cikti / "sitemap.xml").write_text(sitemap_xml(derleme.sitemap), encoding="utf-8")
-    (cikti / "robots.txt").write_text(robots_txt(), encoding="utf-8")
+        dosya.write_text(icerik, encoding="utf-8", newline=LF)
+    (cikti / "sitemap.xml").write_text(sitemap_xml(derleme.sitemap), encoding="utf-8", newline=LF)
+    (cikti / "robots.txt").write_text(robots_txt(), encoding="utf-8", newline=LF)
+    (cikti / MANIFEST_ADI).write_text(sitemap_manifesti(derleme.sitemap), encoding="utf-8", newline=LF)
     shutil.copytree(STATIK, cikti, dirs_exist_ok=True)
     for ad in KOK_DOSYALARI:
         kaynak = kok / ad

@@ -167,14 +167,15 @@ def test_footer_hakkinda_grubu_ve_ana_sayfada_aciklama_bolumu_yok():
 
 def test_ana_sayfa_organization_ve_website_jsonld():
     ana = derle([satir()], SIMDI, en_az_acik=1).sayfalar["/"]
-    veriler = {v["@type"]: v for v in jsonld_listesi(ana)}
+    graf = next(v for v in jsonld_listesi(ana) if "@graph" in v)
+    veriler = {d["@type"]: d for d in graf["@graph"]}
     org = veriler["Organization"]
-    assert org["name"] == "Kamu" and org["url"] == "https://kamuuygulama.me/"
-    assert org["logo"].startswith("https://kamuuygulama.me/")
+    assert org["name"] == "Kamu: Memur Alım İlanları" and org["url"] == "https://kamuuygulama.me/"
+    assert org["logo"]["url"].startswith("https://kamuuygulama.me/")
     assert "https://www.instagram.com/kamu.uygulama/" in org["sameAs"]
     assert any("play.google.com" in s for s in org["sameAs"])
     assert any("apps.apple.com" in s for s in org["sameAs"])
-    assert veriler["WebSite"]["alternateName"] == "Kamu: Memur Alım İlanları"
+    assert "Kamu" in veriler["WebSite"]["alternateName"]
 
 
 # --- 5. Yeni merkezler --------------------------------------------------------

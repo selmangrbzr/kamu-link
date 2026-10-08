@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from urllib.parse import quote
 
-from .jsonld import SITE_ADI, SITE_URL, script_etiketi
+from .jsonld import SITE_ADI, SITE_TAM_ADI, SITE_URL, script_etiketi
 from .metin import kalan_gun_metni, sayi_tr, tarih_tr
 from .model import TR_SAAT, Ilan
 
@@ -183,7 +183,7 @@ def sayfa(
         f'<meta property="og:description" content="{e(bas.aciklama)}">'
         f'<meta property="og:url" content="{e(kanonik)}">'
         f'<meta property="og:type" content="{bas.og_turu}">'
-        f'<meta property="og:site_name" content="{SITE_ADI}">'
+        f'<meta property="og:site_name" content="{e(SITE_TAM_ADI)}">'
         '<meta property="og:locale" content="tr_TR">'
         f'<meta property="og:image" content="{SITE_URL}{OG_GORSEL}">'
         '<meta property="og:image:width" content="1200">'
@@ -197,6 +197,22 @@ def sayfa(
         f"{alt_cubuk(bas.kampanya)}"
         "</body></html>\n"
     )
+
+
+def zaman(gun: date, metin: str | None = None) -> str:
+    """Makinece okunur tarih: <time datetime="2026-10-08">8 Ekim 2026</time>."""
+    return f'<time datetime="{gun.isoformat()}">{e(metin or tarih_tr(gun, yil=True))}</time>'
+
+
+def zaman_araligi(bas: date, bitis: date) -> str:
+    """"1-8 Ekim 2026" biçiminde, iki ucu da <time> ile işaretli aralık."""
+    if bas.year != bitis.year:
+        aralik = f"{zaman(bas)}-{zaman(bitis)}"
+    elif bas.month != bitis.month:
+        aralik = f"{zaman(bas, tarih_tr(bas))}-{zaman(bitis)}"
+    else:
+        aralik = f"{zaman(bas, str(bas.day))}-{zaman(bitis)}"
+    return f'<span class="aralik">{aralik}</span>'
 
 
 def kirinti(ogeler: list[tuple[str, str]]) -> str:

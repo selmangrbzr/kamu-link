@@ -301,6 +301,7 @@ body.cubuklu { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .diger { margin-top: 28px; }
 .defter-kadro.yok b { font-size: 1.5rem; letter-spacing: -0.03em; line-height: 1.1; }
 .ilan-bas .rozet { margin-top: 10px; }
+.aralik { white-space: nowrap; }
 .bos-not { color: var(--ikincil); font-size: .95rem; margin-top: 12px; }
 
 @media (prefers-reduced-motion: no-preference) {

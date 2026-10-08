@@ -45,6 +45,9 @@ def tr_buyuk(metin: str) -> str:
     return metin.replace("i", "İ").replace("ı", "I").upper()
 
 
+_UNLULER = "aeıioöuü"
+_KALIN = "aıouâ"
+_SERT = "fstkçşhp"
 _BILINEN_KISALTMALAR = frozenset({
     "İETT", "TÜİK", "TÜBİTAK", "BOTAŞ", "ASELSAN", "MEB", "DSİ", "MİT", "TOKİ", "ÖSYM", "YÖK",
     "İŞKUR", "AFAD", "TİKA", "DHMİ", "EÜAŞ", "TEİAŞ", "TEDAŞ", "MKE", "MTA", "TMO", "ÇAYKUR",
@@ -163,17 +166,38 @@ def kalan_gun_metni(bitis: date, bugun: date) -> str:
 
 # --- Türkçe ekler ve metin düzeltmeleri (sitede görünen cümleler için) ---------
 
-_UNLULER = "aeıioöuü"
-_KALIN = "aıou"
-_SERT = "fstkçşhp"
 # "3 Ağustos'ta", "8 Ekim'de" (bulunma) ve "22 Ekim'i" (belirtme) ekleri.
 _AY_BULUNMA = dict(zip(_AYLAR, ("ta", "ta", "ta", "da", "ta", "da", "da", "ta", "de", "de", "da", "ta")))
 _AY_BELIRTME = dict(zip(_AYLAR, ("ı", "ı", "ı", "ı", "ı", "ı", "u", "u", "ü", "i", "ı", "ı")))
 
 
-def tarih_de(gun: date) -> str:
-    """"3 Ağustos'ta", "8 Ekim'de"."""
+# Sayıların okunuşuna göre bulunma eki: 3 "üç'te", 6 "altı'da", 20 "yirmi'de", 2026 "altı'da".
+_BIRLER_EK = ("", "de", "de", "te", "te", "te", "da", "de", "de", "da")
+_ONLAR_EK = ("", "da", "de", "da", "ta", "de", "ta", "te", "de", "da")
+
+
+def sayi_bulunma_eki(sayi: int) -> str:
+    if sayi % 10:
+        return _BIRLER_EK[sayi % 10]
+    if sayi % 100:
+        return _ONLAR_EK[(sayi // 10) % 10]
+    return "de" if sayi % 1000 == 0 else "de"  # "bin'de", "yüz'de"
+
+
+def bulunma_eki(kelime: str) -> str:
+    """Özel ada bulunma eki: "Ankara'da", "İzmir'de", "Kars'ta", "Uşak'ta"."""
+    kucuk = tr_kucuk(kelime.strip())
+    son_unlu = next((h for h in reversed(kucuk) if h in _UNLULER), "e")
+    unlu = "a" if son_unlu in _KALIN else "e"
+    sessiz = "t" if kucuk[-1:] in tuple(_SERT) else "d"
+    return f"{kelime}'{sessiz}{unlu}"
+
+
+def tarih_de(gun: date, yil: bool = False) -> str:
+    """"3 Ağustos'ta", "8 Ekim'de"; yil=True ise "9 Ekim 2026'da"."""
     ay = _AYLAR[gun.month - 1]
+    if yil:
+        return f"{gun.day} {ay} {gun.year}'{sayi_bulunma_eki(gun.year)}"
     return f"{gun.day} {ay}'{_AY_BULUNMA[ay]}"
 
 

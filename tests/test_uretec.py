@@ -198,7 +198,7 @@ def test_eklenme_gunu_turkiye_saatine_gore():
     gece = Ilan.from_satir(satir(eklenme_tarihi="2026-10-07T22:30:00+00:00"))  # TR 8 Ekim 01:30
     assert gece.eklenme_gunu.isoformat() == "2026-10-08"
     html = derle([satir(eklenme_tarihi="2026-10-07T22:30:00+00:00")], SIMDI, en_az_acik=1).sayfalar[gece.yol]
-    assert "8 Ekim'de eklendi" in html
+    assert "<time datetime=\"2026-10-08\">8 Ekim 2026</time>'da eklendi" in html
 
 
 def test_kontenjan_sehri_gosterilir_ve_aciklamada_tekrar_yok():
@@ -306,10 +306,11 @@ def test_sitemap_lastmod_ve_kapsam():
     assert "<loc>https://kamuuygulama.me/sozlesmeli-personel-alimlari/</loc>" in xml
     assert xml.count("<url>") == xml.count("<lastmod>")
     assert re.search(r"<lastmod>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00</lastmod>", xml)
-    # Merkezlerin lastmod'u derleme zamanıdır.
+    # Merkezlerin lastmod'u açık ilan kümesinin son değiştiği andır (derleme zamanı değil).
     zamanlar = dict(derleme.sitemap)
-    assert zamanlar["/sozlesmeli-personel-alimlari/"] == SIMDI
-    assert zamanlar["/"] == SIMDI
+    en_yeni = Ilan.from_satir(satir()).eklenme_tarihi
+    assert zamanlar["/sozlesmeli-personel-alimlari/"] == en_yeni
+    assert zamanlar["/"] == en_yeni
     for yol, _ in derleme.sitemap:
         assert 'content="index,follow' in derleme.sayfalar[yol]
 

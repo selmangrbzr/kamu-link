@@ -40,6 +40,8 @@ class Merkez:
     kalici: bool = True
     siralama: str = "yeni"  # "yeni": eklenme tarihine göre, "bitis": son başvuruya göre
     uyari: str | None = None
+    # Manşet cümlesindeki özne: "8 Ekim 2026 itibarıyla {ozne} 22 açık kamu ilanı var."
+    ozne: str = ""
 
     def baslik_metni(self, yil: int) -> str:
         return self.baslik.replace("{yil}", str(yil))
@@ -70,7 +72,11 @@ def _belediye(ilan: Ilan, _simdi: datetime) -> bool:
 
 
 def _kpss_siz(ilan: Ilan, _simdi: datetime) -> bool:
-    return not ilan.kpss_puan_turu and ilan.ilan_turu != "Akademik Personel"
+    """Puan türü alanı boş ve şartlarda/başlıkta da KPSS geçmeyen, akademik olmayan ilanlar."""
+    if ilan.kpss_puan_turu or ilan.ilan_turu == "Akademik Personel":
+        return False
+    metin = katla(" ".join(filter(None, (ilan.ozel_sartlar, ilan.pozisyon, ilan.basvuru_belgeleri))))
+    return "kpss" not in metin
 
 
 def _yaklasan(ilan: Ilan, simdi: datetime) -> bool:
@@ -84,6 +90,7 @@ def _bu_hafta(ilan: Ilan, simdi: datetime) -> bool:
 SABIT_MERKEZLER: tuple[Merkez, ...] = (
     Merkez(
         yol="/memur-alimlari/",
+        ozne="memur alımı için",
         ad="Memur alımları",
         baslik="Memur Alımları {yil}: Güncel Kamu Memur İlanları",
         h1="Memur alımları",
@@ -100,6 +107,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/sozlesmeli-personel-alimlari/",
+        ozne="sözleşmeli personel alımı için",
         ad="Sözleşmeli personel alımları",
         baslik="Sözleşmeli Personel Alımları {yil}: Güncel Kamu İlanları",
         h1="Sözleşmeli personel alımları",
@@ -116,6 +124,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/isci-alimlari/",
+        ozne="işçi alımı için",
         ad="İşçi alımları",
         baslik="Kamu İşçi Alımları {yil}: Güncel İlanlar",
         h1="Kamu işçi alımları",
@@ -131,6 +140,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/akademik-personel-alimlari/",
+        ozne="akademik personel alımı için",
         ad="Akademik personel alımları",
         baslik="Akademik Personel Alımları {yil}: Üniversite İlanları",
         h1="Akademik personel alımları",
@@ -146,6 +156,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/askeri-personel-alimlari/",
+        ozne="askeri personel alımı için",
         ad="Askeri personel alımları",
         baslik="Askeri Personel Alımları {yil}: Subay, Astsubay ve Uzman İlanları",
         h1="Askeri personel alımları",
@@ -161,6 +172,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/lise-mezunu-kamu-ilanlari/",
+        ozne="lise mezunlarına açık",
         ad="Lise mezunu ilanları",
         baslik="Lise Mezunu Kamu İlanları {yil}: Güncel Alımlar",
         h1="Lise mezunu kamu ilanları",
@@ -176,6 +188,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/onlisans-mezunu-kamu-ilanlari/",
+        ozne="ön lisans mezunlarına açık",
         ad="Ön lisans mezunu ilanları",
         baslik="Ön Lisans Mezunu Kamu İlanları {yil}: Güncel Alımlar",
         h1="Ön lisans mezunu kamu ilanları",
@@ -190,6 +203,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/lisans-mezunu-kamu-ilanlari/",
+        ozne="lisans mezunlarına açık",
         ad="Lisans mezunu ilanları",
         baslik="Lisans Mezunu Kamu İlanları {yil}: Güncel Alımlar",
         h1="Lisans mezunu kamu ilanları",
@@ -204,6 +218,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/kpss-p3-ilanlari/",
+        ozne="KPSS P3 puanı isteyen",
         ad="KPSS P3 ilanları",
         baslik="KPSS P3 İlanları {yil}: P3 Puanıyla Başvurulan Kamu Alımları",
         h1="KPSS P3 puanıyla başvurulan ilanlar",
@@ -219,6 +234,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/kpss-p93-ilanlari/",
+        ozne="KPSS P93 puanı isteyen",
         ad="KPSS P93 ilanları",
         baslik="KPSS P93 İlanları {yil}: Ön Lisans Puanıyla Başvurulan Alımlar",
         h1="KPSS P93 puanıyla başvurulan ilanlar",
@@ -234,6 +250,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/kpss-p94-ilanlari/",
+        ozne="KPSS P94 puanı isteyen",
         ad="KPSS P94 ilanları",
         baslik="KPSS P94 İlanları {yil}: Ortaöğretim Puanıyla Başvurulan Alımlar",
         h1="KPSS P94 puanıyla başvurulan ilanlar",
@@ -249,6 +266,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/son-basvurusu-yaklasan-ilanlar/",
+        ozne="son başvurusu önümüzdeki 7 günde dolan",
         ad="Son başvurusu yaklaşanlar",
         baslik="Son Başvurusu Yaklaşan Kamu İlanları {yil}: Önümüzdeki 7 Günde Bitenler",
         h1="Son başvurusu yaklaşan ilanlar",
@@ -266,6 +284,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/bu-hafta-eklenen-kamu-ilanlari/",
+        ozne="son 7 günde eklenen",
         ad="Bu hafta eklenenler",
         baslik="Bu Hafta Eklenen Kamu İlanları {yil}: Yeni Alımlar",
         h1="Bu hafta eklenen kamu ilanları",
@@ -280,6 +299,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/belediye-personel-alimlari/",
+        ozne="belediyelerin yayımladığı",
         ad="Belediye personel alımları",
         baslik="Belediye Personel Alımları {yil}: Güncel Belediye İlanları",
         h1="Belediye personel alımları",
@@ -295,6 +315,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/kpss-siz-kamu-ilanlari/",
+        ozne="KPSS şartı belirtilmeyen",
         ad="KPSS şartı belirtilmeyenler",
         baslik="KPSS Şartı Belirtilmeyen Kamu İlanları {yil}",
         h1="KPSS şartı belirtilmeyen kamu ilanları",
@@ -329,6 +350,7 @@ def sehir_merkezi(il: str) -> Merkez:
             "genelinde çok sayıda ilde kadro açan ilanlar ayrıca listelenir."
         ),
         filtre=_il(il),
+        ozne=f"görev yeri {il} olan",
         grup="sehir",
         en_az_indeks=SEHIR_INDEKS_ESIGI,
         il=il,
@@ -347,6 +369,7 @@ def kurum_merkezi(slug: str, ad: str, kalici: bool) -> Merkez:
             f"{ad} tarafından yayımlanan personel alım ilanları."
         ),
         filtre=_kurum(slug),
+        ozne=ad,
         grup="kurum",
         en_az_indeks=KURUM_INDEKS_ESIGI,
         kalici=kalici,

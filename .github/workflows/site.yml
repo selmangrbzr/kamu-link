@@ -32,6 +32,12 @@ jobs:
           python -m pip install --quiet "pytest>=8"
           python -m pytest -q
 
+      # IndexNow karşılaştırması için yayındaki sitemap üretimden ÖNCE alınır.
+      - name: Önceki sitemap'i indir
+        run: |
+          mkdir -p indexnow
+          curl -fsSL --max-time 30 -o indexnow/onceki.xml https://kamuuygulama.me/sitemap.xml || echo "Önceki sitemap alınamadı; tüm adresler yeni sayılacak."
+
       - name: Siteyi üret
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -42,6 +48,15 @@ jobs:
         with:
           path: _site
 
+      - name: IndexNow girdilerini sakla
+        run: cp _site/sitemap.xml indexnow/yeni.xml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: indexnow
+          path: indexnow/
+          retention-days: 1
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -51,3 +66,25 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Yayından sonra yalnızca yeni ya da lastmod'u değişen adresleri IndexNow'a bildirir.
+  # Hata iş akışını düşürmez.
+  indexnow:
+    needs: deploy
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: indexnow
+          path: indexnow
+
+      - name: IndexNow bildir
+        run: python -m uretec.indexnow --eski indexnow/onceki.xml --yeni indexnow/yeni.xml

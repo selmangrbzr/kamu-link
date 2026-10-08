@@ -128,33 +128,74 @@ def ekmek_kirintisi(ogeler: list[tuple[str, str]]) -> dict[str, Any]:
     }
 
 
-SITE_ALTERNATIF_ADI = "Kamu: Memur Alım İlanları"
+SITE_TAM_ADI = "Kamu: Memur Alım İlanları"
+ALTERNATIF_ADLAR = ["Kamu", "Kamu uygulaması", "kamuuygulama.me"]
+KURULUS_ACIKLAMASI = (
+    "Türkiye'deki kamu personel alım ilanlarını takip eden bağımsız mobil uygulama. "
+    "Resmî kurum değil."
+)
 PLAY_URL = "https://play.google.com/store/apps/details?id=com.selman.memur_ilanlari"
 APP_STORE_URL = "https://apps.apple.com/tr/app/id6792290422"
 INSTAGRAM_URL = "https://www.instagram.com/kamu.uygulama/"
+FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61595200171443"
+KURULUS_ID = f"{SITE_URL}/#kurulus"
+SITE_ID = f"{SITE_URL}/#site"
+UYGULAMA_ID = f"{SITE_URL}/#uygulama"
 
 
-def web_sitesi() -> dict[str, Any]:
+def _kurulus() -> dict[str, Any]:
     return {
-        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": KURULUS_ID,
+        "name": SITE_TAM_ADI,
+        "alternateName": ALTERNATIF_ADLAR,
+        "url": SITE_URL + "/",
+        "logo": {"@type": "ImageObject", "url": SITE_URL + "/kamu-icon-512.png", "width": 512, "height": 512},
+        "description": KURULUS_ACIKLAMASI,
+        "sameAs": [PLAY_URL, APP_STORE_URL, INSTAGRAM_URL, FACEBOOK_URL],
+    }
+
+
+def _site() -> dict[str, Any]:
+    return {
         "@type": "WebSite",
-        "name": SITE_ADI,
-        "alternateName": SITE_ALTERNATIF_ADI,
+        "@id": SITE_ID,
+        "name": SITE_TAM_ADI,
+        "alternateName": ALTERNATIF_ADLAR,
         "url": SITE_URL + "/",
         "inLanguage": "tr-TR",
+        "publisher": {"@id": KURULUS_ID},
     }
 
 
-def organizasyon() -> dict[str, Any]:
+def _uygulama() -> dict[str, Any]:
+    # Puan/yorum verisi yok; AggregateRating bilerek eklenmez.
     return {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": SITE_ADI,
-        "alternateName": SITE_ALTERNATIF_ADI,
-        "url": SITE_URL + "/",
-        "logo": SITE_URL + "/kamu-icon-512.png",
-        "sameAs": [PLAY_URL, APP_STORE_URL, INSTAGRAM_URL],
+        "@type": "MobileApplication",
+        "@id": UYGULAMA_ID,
+        "name": SITE_TAM_ADI,
+        "operatingSystem": "Android, iOS",
+        "applicationCategory": "BusinessApplication",
+        "offers": {"@type": "Offer", "price": "0", "priceCurrency": "TRY"},
+        "installUrl": [PLAY_URL, APP_STORE_URL],
+        "publisher": {"@id": KURULUS_ID},
     }
+
+
+def varlik_grafigi(hakkinda_yolu: str | None = None) -> dict[str, Any]:
+    """Kuruluş, site ve uygulamayı tek @graph'ta bağlar; hakkında sayfasında AboutPage de eklenir."""
+    dugumler = [_kurulus(), _site(), _uygulama()]
+    if hakkinda_yolu:
+        dugumler.append({
+            "@type": "AboutPage",
+            "@id": f"{SITE_URL}{hakkinda_yolu}#sayfa",
+            "url": SITE_URL + hakkinda_yolu,
+            "name": "Kamu hakkında",
+            "inLanguage": "tr-TR",
+            "isPartOf": {"@id": SITE_ID},
+            "mainEntity": {"@id": KURULUS_ID},
+        })
+    return {"@context": "https://schema.org", "@graph": dugumler}
 
 
 def script_etiketi(veri: dict[str, Any]) -> str:
