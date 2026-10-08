@@ -1,0 +1,4 @@
+_site/
+_onizleme/
+__pycache__/
+.pytest_cache/
