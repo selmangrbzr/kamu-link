@@ -198,6 +198,40 @@ def varlik_grafigi(hakkinda_yolu: str | None = None) -> dict[str, Any]:
     return {"@context": "https://schema.org", "@graph": dugumler}
 
 
+def makale_grafigi(
+    yol: str,
+    baslik: str,
+    aciklama: str,
+    yayin: str,
+    guncelleme: str,
+    kaynaklar: list[str],
+) -> dict[str, Any]:
+    """Rehber sayfası: kuruluş ve site düğümleri ile onlara bağlı Article.
+
+    dateModified, metnin elle son kontrol edildiği gündür; veri bölümünün günlük
+    değişimi buraya yazılmaz (yalnızca sitemap lastmod'u etkiler).
+    """
+    url = SITE_URL + yol
+    makale: dict[str, Any] = {
+        "@type": "Article",
+        "@id": f"{url}#makale",
+        "headline": baslik,
+        "description": aciklama,
+        "url": url,
+        "mainEntityOfPage": url,
+        "datePublished": yayin,
+        "dateModified": guncelleme,
+        "author": {"@id": KURULUS_ID},
+        "publisher": {"@id": KURULUS_ID},
+        "inLanguage": "tr-TR",
+        "isPartOf": {"@id": SITE_ID},
+        "image": SITE_URL + "/og-kamu.png",
+    }
+    if kaynaklar:
+        makale["citation"] = kaynaklar
+    return {"@context": "https://schema.org", "@graph": [_kurulus(), _site(), makale]}
+
+
 def script_etiketi(veri: dict[str, Any]) -> str:
     """JSON-LD'yi <script> içine güvenle gömer ("</script>" kaçışı dahil)."""
     metin = json.dumps(veri, ensure_ascii=False, separators=(",", ":"))

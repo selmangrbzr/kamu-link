@@ -27,6 +27,8 @@ from .merkezler import (
     sehir_merkezleri,
 )
 from .model import TR_SAAT, UZUN_ID_ON_EK, Ilan, bugun_tr, sayfasi_olacak_mi
+from .rehber import VERI_FILTRELERI, kontrol_zamani, rehber_dizini, rehber_sayfasi
+from .rehber_icerik import REHBER_KOK, REHBERLER, Rehber
 from .sayfalar import (
     Baglam,
     ana_sayfa,
@@ -203,11 +205,35 @@ def derle(
         derleme.sayfalar[bilgi.yol] = bilgi_sayfasi(bilgi, baglam)
         derleme.sitemap.append((bilgi.yol, bilgi_zamani))
 
-    derleme.sayfalar["/"] = ana_sayfa(acik, baglam, veriler)
     tum_kapanan = [i for i in sayfali if i.basvuru_bitis < bugun]
+    _rehberleri_ekle(derleme, baglam, acik, tum_kapanan)
+
+    derleme.sayfalar["/"] = ana_sayfa(acik, baglam, veriler)
     derleme.sitemap.insert(0, ("/", kume_zamani(acik, tum_kapanan, simdi)))
     derleme.sayfalar["/404.html"] = sayfa_404(baglam)
     return derleme
+
+
+def rehber_zamani(rehber: Rehber, acik: list[Ilan], kapanan: list[Ilan], simdi: datetime) -> datetime:
+    """Rehberin sitemap lastmod'u: elle kontrol günü ile veri bölümünün dayandığı ilan
+    kümesinin son değiştiği anın yenisi."""
+    uyar = VERI_FILTRELERI[rehber.slug]
+    a = [i for i in acik if uyar(i)]
+    k = [i for i in kapanan if uyar(i)]
+    elle = kontrol_zamani(rehber)
+    return max(elle, kume_zamani(a, k, simdi)) if (a or k) else elle
+
+
+def _rehberleri_ekle(derleme: Derleme, baglam: Baglam, acik: list[Ilan], kapanan: list[Ilan]) -> None:
+    indeksli = frozenset(derleme.merkezler)
+    zamanlar = []
+    for rehber in REHBERLER:
+        derleme.sayfalar[rehber.yol] = rehber_sayfasi(rehber, baglam, acik, indeksli)
+        zaman = rehber_zamani(rehber, acik, kapanan, baglam.simdi)
+        derleme.sitemap.append((rehber.yol, zaman))
+        zamanlar.append(zaman)
+    derleme.sayfalar[REHBER_KOK] = rehber_dizini(baglam)
+    derleme.sitemap.append((REHBER_KOK, max(zamanlar)))
 
 
 def sitemap_manifesti(girdiler: list[tuple[str, datetime]]) -> str:

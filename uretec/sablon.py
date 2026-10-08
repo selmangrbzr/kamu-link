@@ -12,6 +12,7 @@ from urllib.parse import quote
 from .jsonld import SITE_ADI, SITE_TAM_ADI, SITE_URL, script_etiketi
 from .metin import kalan_gun_metni, sayi_tr, tarih_tr
 from .model import TR_SAAT, Ilan
+from .rehber_icerik import REHBER_KOK, REHBERLER
 
 ACIL_GUN_SINIRI = 3
 CSS_YOLU = "/kamu.css"
@@ -110,12 +111,15 @@ HAKKINDA_LINKLERI = (
 )
 
 
+REHBER_LINKLERI = tuple((r.ad, r.yol) for r in REHBERLER) + (("Tüm rehberler", REHBER_KOK),)
+
+
 def _link_listesi(linkler: tuple[tuple[str, str], ...]) -> str:
     return "<ul>" + "".join(f'<li><a href="{e(yol)}">{e(ad)}</a></li>' for ad, yol in linkler) + "</ul>"
 
 
 def _kolofon(simdi: datetime, mevcut_yollar: frozenset[str], kampanya: str) -> str:
-    """Alt bilgi: künyenin aynası (çift çizgi), kategoriler, hakkında, uygulama, tek dipnot."""
+    """Alt bilgi: künyenin aynası (çift çizgi), kategoriler, rehberler, hakkında, uygulama, tek dipnot."""
     kategoriler = tuple((ad, yol) for ad, yol in ALT_LINKLER if yol in mevcut_yollar)
     yarim = (len(kategoriler) + 1) // 2
     ios, android = magaza_linkleri(kampanya)
@@ -125,6 +129,8 @@ def _kolofon(simdi: datetime, mevcut_yollar: frozenset[str], kampanya: str) -> s
         '<nav aria-labelledby="k-kategori"><h2 id="k-kategori">Kategoriler</h2>'
         '<div class="kolofon-sutun">'
         f"{_link_listesi(kategoriler[:yarim])}{_link_listesi(kategoriler[yarim:])}</div></nav>"
+        '<nav class="kolofon-rehber" aria-labelledby="k-rehber"><h2 id="k-rehber">Rehberler</h2>'
+        f"{_link_listesi(REHBER_LINKLERI)}</nav>"
         '<nav aria-labelledby="k-hakkinda"><h2 id="k-hakkinda">Kamu hakkında</h2>'
         f"{_link_listesi(HAKKINDA_LINKLERI)}</nav>"
         '<div><h2>Uygulama</h2>'

@@ -304,6 +304,44 @@ body.cubuklu { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .aralik { white-space: nowrap; }
 .bos-not { color: var(--ikincil); font-size: .95rem; margin-top: 12px; }
 
+/* --- Rehber sayfaları: kısa cevap, metin içi atıf, veri tablosu, kaynaklar --- */
+.rehber-meta { font-size: .85rem; color: var(--ikincil); margin: 10px 0 0; }
+.kisa-cevap { margin: 18px 0 0; padding: 14px 0 2px; border-top: 3px solid var(--lacivert); border-bottom: 1px solid var(--cizgi-guclu); }
+.kisa-cevap p { font-size: 1.1rem; line-height: 1.55; color: var(--metin); }
+.atif { font-size: .8rem; color: var(--ikincil); }
+.atif a { color: var(--ikincil); }
+.atif a:hover { color: var(--mavi); }
+.rehber .bolum-bas + p, .rehber .bolum-bas + ul { margin-top: 10px; }
+.veri { margin-top: 0; }
+.veri-cumle { margin: 10px 0 0; }
+.tablo-kap { overflow-x: auto; margin: 14px 0 4px; }
+.veri-tablo { width: 100%; border-collapse: collapse; font-size: .93rem; line-height: 1.35; }
+.veri-tablo th { text-align: left; font-size: .8rem; font-weight: 700; color: var(--ikincil); padding: 0 12px 8px 0; border-bottom: 2px solid var(--lacivert); }
+.veri-tablo td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--cizgi); vertical-align: top; }
+.veri-tablo th:last-child, .veri-tablo td:last-child { padding-right: 0; }
+.veri-tablo .sayi { text-align: right; white-space: nowrap; }
+.veri-tablo td.sayi { font-weight: 800; color: var(--lacivert); }
+.veri-tablo a { color: var(--metin); }
+.veri-tablo a:hover { color: var(--mavi); }
+.okuma .ilgili { list-style: none; padding: 0; margin: 8px 0 0; }
+.okuma .ilgili li { margin: 0; border-bottom: 1px solid var(--cizgi); }
+.ilgili a { display: block; padding: 9px 0; font-weight: 700; }
+.kaynaklar { margin: 10px 0 0; padding-left: 1.3rem; font-size: .92rem; }
+.kaynaklar li { margin-bottom: .55rem; overflow-wrap: anywhere; }
+.kaynaklar .soluk { display: block; font-size: .8rem; }
+.okuma .rehber-dizin { list-style: none; padding: 0; margin: 18px 0 0; border-top: 2px solid var(--lacivert); }
+.okuma .rehber-dizin li { margin: 0; padding: 14px 0; border-bottom: 1px solid var(--cizgi); }
+.rehber-dizin a { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.01em; color: var(--lacivert); text-decoration: none; }
+.rehber-dizin a:hover { color: var(--mavi); text-decoration: underline; }
+.rehber-dizin p { margin: 4px 0 0; font-size: .92rem; color: var(--ikincil); }
+.rehber-bag { font-size: .92rem; color: var(--ikincil); max-width: 68ch; margin: 10px 0 0; }
+.rehber-bag a { font-weight: 700; }
+.kolofon-izgara > .kolofon-rehber { grid-column: 1 / -1; }
+@media (min-width: 720px) {
+  .kolofon-izgara { grid-template-columns: 2fr 1.5fr 1fr 1fr; }
+  .kolofon-izgara > .kolofon-rehber { grid-column: auto; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .dugme, .alt-cubuk a { transition: background-color .15s ease, transform .1s ease; }
 }

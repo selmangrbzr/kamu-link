@@ -10,6 +10,7 @@ from .merkezler import Merkez, MerkezVerisi
 from .metin import sayi_tr
 from .model import Ilan, kisa_kurum_adi
 from .ozet import merkez_aciklamasi, ozet_parcalari
+from .rehber_icerik import MERKEZ_REHBERI, REHBER_SLUGLARI
 from .sablon import (
     KAMPANYA_SEO,
     SayfaBasi,
@@ -75,6 +76,15 @@ def _ozet_html(veri: MerkezVerisi, b: Baglam) -> str:
         return ""
     metin = " ".join(f'<a href="{link}">{e(c)}</a>' if link else e(c) for c, link in parcalar)
     return f'<p class="ozet-cumleler">{metin}</p>'
+
+
+def _rehber_baglantisi(merkez: Merkez) -> str:
+    """Merkezden konuyla ilgili tek rehbere link."""
+    slug = MERKEZ_REHBERI.get(merkez.yol)
+    if not slug:
+        return ""
+    rehber = REHBER_SLUGLARI[slug]
+    return f'<p class="rehber-bag">Rehber: <a href="{rehber.yol}">{e(rehber.h1)}</a></p>'
 
 
 def _diger_kategoriler(merkez: Merkez, digerleri: list[Merkez]) -> str:
@@ -148,7 +158,7 @@ def merkez_sayfasi(
         '<section class="manset merkez-manset"><div>'
         f'<h1>{e(merkez.h1)}</h1><p class="manset-satir">{manset}</p>'
         "</div></section>"
-        f'<p class="giris">{e(merkez.giris)}</p>{uyari}{_ozet_html(veri, b)}'
+        f'<p class="giris">{e(merkez.giris)}</p>{uyari}{_ozet_html(veri, b)}{_rehber_baglantisi(merkez)}'
         '<div class="merkez-izgara">'
         f"<div>{_liste_bolumu(veri, b, ulusal)}</div>"
         f'<aside class="bolum">{cagri}{_diger_kategoriler(merkez, digerleri)}</aside>'
