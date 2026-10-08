@@ -161,7 +161,9 @@ def test_acik_ilan_sayfasi_indekslenir_ve_jobposting_icerir():
     assert 'content="index,follow' in html
     assert any(v["@type"] == "JobPosting" for v in jsonld_listesi(html))
     assert '<link rel="canonical" href="https://kamuuygulama.me/ilan/' in html
-    assert "otomatik çıkarıyoruz" in html
+    # Açıklama/hata payı metinleri kaldırıldı; tek satır bağımsızlık notu kalır.
+    assert "otomatik çıkar" not in html and "hata olabilir" not in html
+    assert "Kamu bağımsız bir uygulama, resmî kurum değil." in html
     assert "ct=seo" in html and "utm_campaign%3Dseo" in html
     assert 'href="https://kamuilan.sbb.gov.tr/ilanDetay.aspx?kod=abc"' in html
 

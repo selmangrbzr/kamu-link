@@ -23,10 +23,7 @@ APP_STORE_PT = "129188874"
 PLAY_PAKET = "com.selman.memur_ilanlari"
 KAMPANYA_SEO = "seo"
 FONT_AGIRLIKLARI = (400, 700, 800)
-UYARI = (
-    "Bu bilgileri ilan metninden otomatik çıkarıyoruz, hata olabilir. Başvurmadan önce "
-    "resmî ilanı oku. Kamu bağımsız bir uygulama, resmî kurum değil."
-)
+UYARI = "Kamu bağımsız bir uygulama, resmî kurum değil."
 OK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
 
 
@@ -122,7 +119,6 @@ def _kolofon(simdi: datetime, mevcut_yollar: frozenset[str], kampanya: str) -> s
     kategoriler = tuple((ad, yol) for ad, yol in ALT_LINKLER if yol in mevcut_yollar)
     yarim = (len(kategoriler) + 1) // 2
     ios, android = magaza_linkleri(kampanya)
-    zaman = simdi.astimezone(TR_SAAT)
     return (
         '<footer class="kolofon"><div class="kap"><div class="cift-cizgi"></div>'
         '<div class="kolofon-izgara">'
@@ -134,8 +130,7 @@ def _kolofon(simdi: datetime, mevcut_yollar: frozenset[str], kampanya: str) -> s
         '<div><h2>Uygulama</h2>'
         f'<ul><li><a href="{e(android)}">Google Play</a></li><li><a href="{e(ios)}">App Store</a></li></ul></div>'
         "</div>"
-        f'<p class="dipnot">{e(UYARI)} Kaynak: kamuilan.sbb.gov.tr. Son güncelleme '
-        f"{tarih_tr(zaman.date(), yil=True)}, {zaman:%H:%M}.</p>"
+        f'<p class="dipnot">{e(UYARI)}</p>'
         "</div></footer>"
     )
 

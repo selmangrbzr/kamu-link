@@ -176,8 +176,8 @@ def bilgi_sayfasi_parcalari(sayfa: BilgiSayfasi) -> tuple[SayfaBasi, str, list[t
     kirinti_ogeleri = [("Ana sayfa", "/"), (sayfa.ad, sayfa.yol)]
     cagri = uygulama_cagrisi(
         "Yeni ilan çıkınca haberin olsun",
-        "Kamu, ilanları günde dört kez tarar; seçtiğin türde yeni ilan çıktığında ve son "
-        "güne az kaldığında bildirim gönderir. Ücretsiz.",
+        "Seçtiğin türde yeni ilan çıktığında ve son güne az kaldığında telefonuna "
+        "bildirim gelir. Ücretsiz.",
         KAMPANYA,
     )
     govde = (

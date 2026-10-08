@@ -272,8 +272,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
         etiket="YENİ İLANLAR",
         giris=(
             f"Son {HAFTA_GUN} günde kamuilan.sbb.gov.tr'de yayımlanan ve Kamu'ya eklenen "
-            "personel alım ilanları, en yeniden eskiye. Liste günde dört kez "
-            "güncellenir. İptal ve düzeltme duyuruları ayrı ilan olarak gösterilmez."
+            "personel alım ilanları, en yeniden eskiye."
         ),
         filtre=_bu_hafta,
         grup="ozel",
@@ -345,9 +344,7 @@ def kurum_merkezi(slug: str, ad: str, kalici: bool) -> Merkez:
         h1=f"{ad} personel alımları",
         etiket="KURUM",
         giris=(
-            f"{ad} tarafından kamuilan.sbb.gov.tr'de yayımlanan personel alım "
-            "ilanları. Liste günde dört kez güncellenir. İptal ve düzeltme "
-            "duyuruları ayrı ilan olarak gösterilmez."
+            f"{ad} tarafından yayımlanan personel alım ilanları."
         ),
         filtre=_kurum(slug),
         grup="kurum",

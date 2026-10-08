@@ -134,7 +134,7 @@ def merkez_aciklamasi(veri: MerkezVerisi) -> str:
     """Meta açıklama: "Memur alımları: 22 açık ilan, toplam 1.204 kadro. En yakın son başvuru 9 Ekim (SEDDK)."."""
     h1 = veri.merkez.h1
     if not veri.acik:
-        return f"{h1}: şu an açık ilan yok. Yeni ilan yayımlandığında bu sayfa günde dört kez güncellenir."
+        return f"{h1}: şu an açık ilan yok. Yeni ilanlar yayımlandığında burada listelenir."
     kadro = sum(i.kisi_sayisi or 0 for i in veri.acik)
     kadro_metni = f", toplam {sayi_tr(kadro)} kadro" if kadro else ""
     yakin = min(veri.acik, key=lambda i: (i.basvuru_bitis, i.id))

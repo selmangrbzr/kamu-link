@@ -72,10 +72,6 @@ def aciklama_html(ilan: Ilan) -> str:
         if metin:
             maddeler = "".join(f"<li>{_e(m)}</li>" for m in sart_parcalari(metin))
             parcalar.append(f"<p>{baslik}:</p><ul>{maddeler}</ul>")
-    parcalar.append(
-        "<p>Bu bilgileri ilan metninden otomatik çıkarıyoruz, hata olabilir. "
-        "Başvurmadan önce resmî ilanı oku.</p>"
-    )
     return "".join(parcalar)
 
 

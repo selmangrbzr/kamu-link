@@ -76,9 +76,8 @@ def _liste_bolumu(veri: MerkezVerisi, b: Baglam, ulusal: list[Ilan] | None) -> s
         html = (
             '<section class="bolum" aria-labelledby="liste">'
             f'{bolum_bas("liste", "Açık ilanlar")}'
-            '<div class="durum" role="status"><b>Şu an açık ilan yok.</b> Yeni ilan '
-            "yayımlandığında bu sayfa günde dört kez güncellenir. Diğer kategorilerdeki "
-            "açık ilanlara aşağıdan ulaşabilirsin.</div></section>"
+            '<div class="durum" role="status"><b>Şu an açık ilan yok.</b> Diğer '
+            "kategorilerdeki açık ilanlara aşağıdan ulaşabilirsin.</div></section>"
         )
         if veri.kapanan:
             html += (
@@ -232,8 +231,7 @@ def _ana_bolumler(acik: list[Ilan], b: Baglam) -> str:
 def ana_sayfa(acik: list[Ilan], b: Baglam, veriler: list[MerkezVerisi]) -> str:
     cagri = uygulama_cagrisi(
         "Yeni ilan çıkınca haberin olsun",
-        "Kamu, ilanları günde dört kez tarar; yeni ilan çıktığında ve son gün yaklaştığında "
-        "bildirim gönderir. Ücretsiz.",
+        "Yeni ilan çıktığında ve son gün yaklaştığında telefonuna bildirim gelir. Ücretsiz.",
         KAMPANYA_ANA,
         "manset-cagri yalniz-genis",
         "cagri-ana",
@@ -241,24 +239,18 @@ def ana_sayfa(acik: list[Ilan], b: Baglam, veriler: list[MerkezVerisi]) -> str:
     govde = (
         '<section class="manset"><div><h1>Kamu ilanları, son başvuru kaçmadan</h1>'
         f'<p class="manset-satir">{_sayilar_cumlesi(acik, b, True)}</p>'
-        '<p class="giris">kamuilan.sbb.gov.tr\'deki personel alımlarını günde dört kez '
-        "çekiyoruz. Her ilanın kadrosunu, şartlarını ve son gününü tek sayfada gör; yeni "
-        "ilan çıkınca uygulama haber versin.</p>"
+        '<p class="giris">Her ilanın kadrosunu, şartlarını ve son gününü tek sayfada gör; '
+        "yeni ilan çıkınca uygulama haber versin.</p>"
         f"</div>{cagri}</section>"
         f"{_ana_bolumler(acik, b)}"
         '<section class="bolum" aria-labelledby="kategori">'
         f'{bolum_bas("kategori", "Kategoriler")}{kategori_dizini(veriler)}</section>'
-        '<section class="bolum" aria-labelledby="nasil"><div class="bolum-bas"><h2 id="nasil">'
-        '<a class="baslik-link" href="/nasil-calisir/">Bu sayfalar nasıl hazırlanıyor?</a></h2></div>'
-        '<p class="giris">İlanları günde dört kez kamuilan.sbb.gov.tr\'den alıyor, bilgileri '
-        "yapay zekâyla çıkarıyoruz; hata olabilir. Her ilan sayfasında resmî ilan metnine "
-        'giden link var. <a href="/nasil-calisir/">Kaynak, güncelleme ve hata payı</a></p></section>'
     )
     bas = SayfaBasi(
         baslik=f"Kamu İlanları {b.yil}: Güncel Memur ve Kamu Personel Alımları | Kamu",
         aciklama=kisalt(
             f"{sayi_tr(len(acik))} açık kamu ilanı: memur, sözleşmeli, işçi ve akademik "
-            "personel alımları. Kadro, şartlar ve son başvuru tarihleri günde dört kez güncel."
+            "personel alımları. Kadro, şartlar ve son başvuru tarihleri tek sayfada."
         ),
         yol="/",
         kampanya=KAMPANYA_ANA,

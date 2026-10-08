@@ -155,11 +155,14 @@ def test_guven_sayfalari_ve_icerikleri():
         assert ifade in nasil
 
 
-def test_footer_hakkinda_grubu_ve_ana_sayfa_nasil_calisir_linki():
+def test_footer_hakkinda_grubu_ve_ana_sayfada_aciklama_bolumu_yok():
     derleme = derle([satir()], SIMDI, en_az_acik=1)
     assert "Kamu hakkında" in derleme.sayfalar["/memur-alimlari/"]
     ana = derleme.sayfalar["/"]
-    assert 'href="/nasil-calisir/">Bu sayfalar nasıl hazırlanıyor?</a>' in ana
+    # Kullanıcı isteğiyle "nasıl hazırlanıyor / hata payı" bölümü kaldırıldı; sayfa yalnız
+    # alt bilgideki Kamu hakkında grubundan ulaşılır.
+    assert "Bu sayfalar nasıl hazırlanıyor?" not in ana
+    assert 'href="/nasil-calisir/"' in ana
 
 
 def test_ana_sayfa_organization_ve_website_jsonld():

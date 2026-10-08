@@ -127,7 +127,7 @@ def test_baslikta_adet_ve_alacak_gecmez():
 
 def test_ilan_bilgilerinden_tekrarlar_cikti_ve_tarih_araligi_tek_satir():
     sayfa = derle([satir()], SIMDI, en_az_acik=1).sayfalar[Ilan.from_satir(satir()).yol]
-    bilgi = sayfa[sayfa.index('id="bilgi"'):sayfa.index('class="dipnot-kutu"')]
+    bilgi = sayfa[sayfa.index('id="bilgi"'):sayfa.index('</article>')]
     for cikan in ("<dt>Kurum</dt>", "<dt>İlan başlığı</dt>", "<dt>Kadro sayısı</dt>",
                   "<dt>Son başvuru</dt>", "<dt>Kalan süre</dt>"):
         assert cikan not in bilgi

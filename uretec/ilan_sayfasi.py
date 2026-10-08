@@ -204,8 +204,7 @@ def _resmi(ilan: Ilan) -> str:
     if not linkler:
         return ""
     return (
-        f'<div class="resmi">{"".join(linkler)}<p class="resmi-not">Bilgiler ilan metninden '
-        "otomatik çıkarıldı. Başvurmadan önce resmî ilanı kontrol et.</p></div>"
+        f'<div class="resmi">{"".join(linkler)}</div>'
     )
 
 
@@ -362,7 +361,7 @@ def ilan_sayfasi(
         f"{_metin_bolumu('sartlar', 'Özel şartlar', ilan.ozel_sartlar)}"
         f"{_metin_bolumu('belgeler', 'Başvuru belgeleri', ilan.basvuru_belgeleri)}"
         f"{_kontenjan(ilan)}{_bilgi_listesi(ilan, b)}"
-        f'<p class="dipnot-kutu">{e(UYARI)}</p></div></article>'
+        "</div></article>"
         f"{_benzerler(ilan, b, benzerler, kurum_acik)}"
     )
     bas = SayfaBasi(
