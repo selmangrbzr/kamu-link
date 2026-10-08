@@ -8,6 +8,10 @@ indekslenebilir sayfalar ve mağaza yönlendirmesi.
 - `/`: Giriş sayfası (yönlendirmesiz). Son ilanlar, en büyük alımlar, kategoriler. Mağaza kampanyası `site`.
 - `/ilan/<slug>/`: İlan sayfası. Açık ilanda JobPosting JSON-LD; son başvurusu son 60 günde dolan ilan `noindex`.
 - `/memur-alimlari/`, `/lise-mezunu-kamu-ilanlari/`, `/kpss-p3-ilanlari/`, `/sehir/<il>/` vb.: Merkez sayfaları (yalnızca açık ilanı olanlar).
+- `/kurum/<slug>/`: Kurum sayfaları (bakanlıklar ve büyük başkanlıklar kalıcı; diğerleri açık ilan varken). 2+ açık ilanda indekslenir.
+- `/son-basvurusu-yaklasan-ilanlar/`, `/bu-hafta-eklenen-kamu-ilanlari/`, `/belediye-personel-alimlari/`, `/kpss-siz-kamu-ilanlari/`: Ek merkezler.
+- Sabit merkezler ilan kalmasa da üretilir ("şu an açık ilan yok", `noindex`, sitemap dışı).
+- `/hakkinda/`, `/nasil-calisir/`, `/iletisim/`, `/gizlilik/`: Güven sayfaları (`uretec/bilgi.py`).
 - `/ig`: Instagram bio linki. Cihaza göre mağazaya yönlendirir (`yonlendir.js`, kampanya `ig`), `noindex`.
 - Yönlendirmeli sayfalara `?k=story` gibi ekleyerek kampanya adı değiştirilebilir.
 
@@ -28,4 +32,6 @@ python -m pytest -q
 - `uretec/merkezler.py`: Merkez tanımları ve giriş metinleri.
 - `uretec/sayfalar.py`, `uretec/sablon.py`: HTML.
 - `uretec/derle.py`: Derleme, sitemap, robots.txt, dosya yazımı.
+- `uretec/kurumlar.py`: Kalıcı kurum listesi, kurum anahtarı, "X Belediyesi" varyantı.
+- `uretec/og_gorseli.py`: 1200x630 paylaşım görselini üretir (`python -m uretec.og_gorseli`, Playwright gerekir).
 - `uretec/statik/`: `kamu.css`, Plus Jakarta Sans WOFF2 alt kümeleri (OFL), küçük simge.

@@ -6,11 +6,13 @@ None olur, kadro sayısı aralık dışındaysa yok sayılır, linkler yalnızca
 """
 
 import re
-from dataclasses import dataclass
-from urllib.parse import urlsplit
-from datetime import date, datetime, timedelta, timezone
 from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlsplit
+
+from .kurumlar import belediye_varyanti, kurum_anahtari
 
 from .metin import (
     ascii_slug,
@@ -155,7 +157,8 @@ def kisa_kurum_adi(kurum: str) -> str:
     for onek, kisa in _KISA_ADLAR:
         if kucuk.startswith(onek):
             return kisa
-    return tr_baslik(kurum)
+    tam = tr_baslik(kurum)
+    return belediye_varyanti(tam) or tam
 
 
 @dataclass(frozen=True)
@@ -242,7 +245,11 @@ class Ilan:
 
     @property
     def pozisyon_adi(self) -> str | None:
-        return pozisyon_temizle(self.pozisyon, self.kurum, self.kisi_sayisi)
+        ad = pozisyon_temizle(self.pozisyon, self.kurum, self.kisi_sayisi)
+        # "5 ADET ÖĞRETİM ELEMANI" kalıbı; slug'a dokunulmaz (adres kalıcılığı).
+        if ad and ad.startswith("Adet "):
+            ad = ad[len("Adet "):] or None
+        return ad
 
     @property
     def kurum_adi(self) -> str:
@@ -251,6 +258,15 @@ class Ilan:
     @property
     def kisa_kurum(self) -> str:
         return kisa_kurum_adi(self.kurum)
+
+    @property
+    def belediye_adi(self) -> str | None:
+        """Belediye ilanlarında aramaya uygun ad: "Mucur Belediyesi"."""
+        return belediye_varyanti(self.kurum_adi)
+
+    @property
+    def kurum_slug(self) -> str:
+        return kurum_anahtari(self.kurum)[0]
 
     @property
     def tur_etiketi(self) -> str:

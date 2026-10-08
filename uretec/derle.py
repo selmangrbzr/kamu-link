@@ -9,20 +9,37 @@ import logging
 import shutil
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape as xml_escape
 
+from .bilgi import BILGI_GUNCELLEME, BILGI_SAYFALARI
 from .jsonld import SITE_URL
-from .merkezler import Merkez, tum_merkezler
-from .model import UZUN_ID_ON_EK, Ilan, bugun_tr, sayfasi_olacak_mi
-from .sayfalar import Baglam, ana_sayfa, ilan_sayfasi, merkez_sayfasi, sayfa_404
+from .kurumlar import kalici_kurumlar, kurum_anahtari
+from .merkezler import (
+    SABIT_MERKEZLER,
+    Merkez,
+    MerkezVerisi,
+    kurum_merkezi,
+    sehir_merkezleri,
+)
+from .model import TR_SAAT, UZUN_ID_ON_EK, Ilan, bugun_tr, sayfasi_olacak_mi
+from .sayfalar import (
+    Baglam,
+    ana_sayfa,
+    bilgi_sayfasi,
+    ilan_basliklari,
+    ilan_sayfasi,
+    merkez_sayfasi,
+    sayfa_404,
+)
 
 log = logging.getLogger(__name__)
 
 BENZER_ADET = 4
 DIGER_SEHIR_ADET = 10
+KAPANAN_ADET = 10
 # Bundan az açık ilan gelirse veri kaynağı bozuk sayılır ve site yayınlanmaz
 # (eksik çekim yüzlerce sayfayı silmesin). URETEC_EN_AZ_ACIK_ILAN ile değiştirilebilir.
 EN_AZ_ACIK_ILAN = 20
@@ -89,13 +106,39 @@ def benzer_ilanlar(ilan: Ilan, acik: list[Ilan], adet: int = BENZER_ADET) -> lis
     return adaylar[:adet]
 
 
-def _merkez_listeleri(acik: list[Ilan]) -> list[tuple[Merkez, list[Ilan]]]:
+def _kurum_merkezleri(acik: list[Ilan]) -> list[Merkez]:
+    """Kalıcı kurumlar her zaman; diğerleri yalnızca açık ilanı varsa."""
+    adlar: dict[str, tuple[str, bool]] = {slug: (ad, True) for slug, ad in kalici_kurumlar()}
+    for ilan in sorted(acik, key=lambda i: (i.eklenme_tarihi, i.id)):
+        slug, ad, kalici = kurum_anahtari(ilan.kurum)
+        if slug and not kalici:
+            adlar[slug] = (ad, False)  # en yeni ilandaki yazım kullanılır
+    return [kurum_merkezi(slug, ad, kalici) for slug, (ad, kalici) in sorted(adlar.items())]
+
+
+def merkez_verileri(sayfali: list[Ilan], acik: list[Ilan], simdi: datetime) -> list[MerkezVerisi]:
+    """Üretilecek merkezler: kalıcı olanlar boş da olsa, diğerleri açık ilanı varsa."""
+    kapanmis = [i for i in sayfali if i not in set(acik)]
+    kapanmis.sort(key=lambda i: (i.basvuru_bitis, i.id), reverse=True)
     sonuc = []
-    for merkez in tum_merkezler():
-        uyanlar = [i for i in acik if merkez.filtre(i)]
-        if uyanlar:  # İçi boş merkez sayfası üretilmez (ince içerik).
-            sonuc.append((merkez, uyanlar))
+    adaylar = [*SABIT_MERKEZLER, *sehir_merkezleri(), *_kurum_merkezleri(acik)]
+    for merkez in adaylar:
+        uyanlar = tuple(i for i in acik if merkez.filtre(i, simdi))
+        if not uyanlar and not merkez.kalici:
+            continue
+        kapanan = tuple(i for i in kapanmis if merkez.filtre(i, simdi))[:KAPANAN_ADET]
+        sonuc.append(MerkezVerisi(merkez=merkez, acik=uyanlar, kapanan=kapanan))
     return sonuc
+
+
+def _diger_merkezler(veriler: list[MerkezVerisi]) -> list[Merkez]:
+    """"Diğer kategoriler" kutusu: indekslenen sabit merkezler ve en büyük şehirler."""
+    sabit = [v.merkez for v in veriler if v.merkez.grup not in {"sehir", "kurum"} and v.indekslenebilir]
+    sehirler = sorted(
+        (v for v in veriler if v.merkez.grup == "sehir" and v.indekslenebilir),
+        key=lambda v: -len(v.acik),
+    )
+    return sabit + [v.merkez for v in sehirler[:DIGER_SEHIR_ADET]]
 
 
 def derle(
@@ -110,36 +153,44 @@ def derle(
             "veri kaynağında sorun olabilir, site yayınlanmadı."
         )
 
-    merkez_listeleri = _merkez_listeleri(acik)
+    veriler = merkez_verileri(sayfali, acik, simdi)
     baglam = Baglam(
         simdi=simdi,
         bugun=bugun,
-        mevcut_yollar=frozenset(m.yol for m, _ in merkez_listeleri),
-        il_yollari={m.il: m.yol for m, _ in merkez_listeleri if m.il},
+        mevcut_yollar=frozenset(v.merkez.yol for v in veriler),
+        il_yollari={v.merkez.il: v.merkez.yol for v in veriler if v.merkez.il},
+        kurum_yollari={
+            v.merkez.yol.split("/")[2]: v.merkez.yol for v in veriler if v.merkez.grup == "kurum"
+        },
     )
     derleme = Derleme(acik=len(acik), kapali=len(sayfali) - len(acik))
 
+    basliklar = ilan_basliklari(sayfali, bugun)
     for ilan in sayfali:
-        derleme.sayfalar[ilan.yol] = ilan_sayfasi(ilan, baglam, benzer_ilanlar(ilan, acik))
+        derleme.sayfalar[ilan.yol] = ilan_sayfasi(
+            ilan, baglam, benzer_ilanlar(ilan, acik), basliklar[ilan.id]
+        )
         if ilan.basvuru_bitis >= bugun:
             derleme.sitemap.append((ilan.yol, ilan.eklenme_tarihi))
 
-    # "Diğer kategoriler" kutusu: sabit merkezler ve en çok ilanı olan şehirler.
-    sehirler = sorted((x for x in merkez_listeleri if x[0].il), key=lambda x: -len(x[1]))
-    merkezler = [m for m, _ in merkez_listeleri if not m.il]
-    merkezler += [m for m, _ in sehirler[:DIGER_SEHIR_ADET]]
-    for merkez, ilanlar in merkez_listeleri:
+    digerleri = _diger_merkezler(veriler)
+    for veri in veriler:
+        merkez = veri.merkez
         ulusal = [i for i in acik if merkez.il and merkez.il in i.iller and i.ulusal_mi]
-        derleme.sayfalar[merkez.yol] = merkez_sayfasi(merkez, ilanlar, baglam, merkezler, ulusal)
-        if len(ilanlar) >= merkez.en_az_indeks:
+        derleme.sayfalar[merkez.yol] = merkez_sayfasi(veri, baglam, digerleri, ulusal)
+        if veri.indekslenebilir:
             derleme.merkezler.append(merkez.yol)
-            derleme.sitemap.append((merkez.yol, max(i.eklenme_tarihi for i in ilanlar)))
+            derleme.sitemap.append((merkez.yol, simdi))  # merkez içeriği her derlemede yenilenir
         else:
             derleme.noindex_merkezler.append(merkez.yol)
 
-    sayilar = [(m, len(ilanlar)) for m, ilanlar in merkez_listeleri]
-    derleme.sayfalar["/"] = ana_sayfa(acik, baglam, sayilar)
-    derleme.sitemap.insert(0, ("/", max(i.eklenme_tarihi for i in acik)))
+    bilgi_zamani = datetime.combine(BILGI_GUNCELLEME, time(), tzinfo=TR_SAAT)
+    for bilgi in BILGI_SAYFALARI:
+        derleme.sayfalar[bilgi.yol] = bilgi_sayfasi(bilgi, baglam)
+        derleme.sitemap.append((bilgi.yol, bilgi_zamani))
+
+    derleme.sayfalar["/"] = ana_sayfa(acik, baglam, veriler)
+    derleme.sitemap.insert(0, ("/", simdi))
     derleme.sayfalar["/404.html"] = sayfa_404(baglam)
     return derleme
 

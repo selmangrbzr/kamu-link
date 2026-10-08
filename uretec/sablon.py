@@ -17,6 +17,12 @@ ACIL_GUN_SINIRI = 3
 CSS_YOLU = "/kamu.css"
 IKON = "/kamu-icon-512.png"
 IKON_KUCUK = "/kamu-ikon-96.png"
+OG_GORSEL = "/og-kamu.png"
+APP_STORE_ID = "6792290422"
+APP_STORE_PT = "129188874"
+PLAY_PAKET = "com.selman.memur_ilanlari"
+KAMPANYA_SEO = "seo"
+FONT_AGIRLIKLARI = (400, 700, 800)
 UYARI = (
     "Bilgiler ilan metninden otomatik çıkarılmıştır, hata içerebilir; başvurmadan "
     "önce resmî ilanı kontrol edin. Kamu bağımsız bir uygulamadır, resmî kurum değildir."
@@ -30,25 +36,34 @@ def e(metin: object) -> str:
 def magaza_linkleri(kampanya: str) -> tuple[str, str]:
     """(App Store, Google Play) linkleri; yonlendir.js ile aynı biçim."""
     ios = (
-        "https://apps.apple.com/tr/app/apple-store/id6792290422"
-        f"?pt=129188874&ct={kampanya}&mt=8"
+        f"https://apps.apple.com/tr/app/apple-store/id{APP_STORE_ID}"
+        f"?pt={APP_STORE_PT}&ct={kampanya}&mt=8"
     )
     referrer = f"utm_source={kampanya}&utm_medium=social&utm_campaign={kampanya}"
     android = (
-        "https://play.google.com/store/apps/details?id=com.selman.memur_ilanlari"
+        f"https://play.google.com/store/apps/details?id={PLAY_PAKET}"
         f"&referrer={quote(referrer, safe='')}"
     )
     return ios, android
 
 
-def magaza_butonlari(kampanya: str) -> str:
+def magaza_butonlari(kampanya: str, sinif: str = "") -> str:
     ios, android = magaza_linkleri(kampanya)
+    siniflar = f"magazalar {sinif}".strip()
     return (
-        '<div class="magazalar">'
+        f'<div class="{siniflar}">'
         f'<a class="dugme dugme-dolu" href="{e(android)}">Google Play\'den indir</a>'
         f'<a class="dugme dugme-cizgi" href="{e(ios)}">App Store\'dan indir</a>'
         "</div>"
     )
+
+
+def apple_uygulama_meta(uygulama_argumani: str | None = None) -> str:
+    """Safari Smart App Banner; ilan sayfalarında açılacak adres de verilir."""
+    icerik = f"app-id={APP_STORE_ID}, affiliate-data=pt={APP_STORE_PT}&ct={KAMPANYA_SEO}"
+    if uygulama_argumani:
+        icerik += f", app-argument={uygulama_argumani}"
+    return f'<meta name="apple-itunes-app" content="{e(icerik)}">'
 
 
 @dataclass(frozen=True)
@@ -59,6 +74,8 @@ class SayfaBasi:
     indekslenebilir: bool = True
     og_turu: str = "website"
     bolum: str = ""
+    kampanya: str = KAMPANYA_SEO
+    uygulama_argumani: bool = False
 
 
 def _kunye(bolum: str, simdi: datetime) -> str:
@@ -78,29 +95,62 @@ ALT_LINKLER = (
     ("Sözleşmeli personel", "/sozlesmeli-personel-alimlari/"),
     ("İşçi alımları", "/isci-alimlari/"),
     ("Akademik personel", "/akademik-personel-alimlari/"),
+    ("Belediye alımları", "/belediye-personel-alimlari/"),
     ("Lise mezunu", "/lise-mezunu-kamu-ilanlari/"),
     ("Ön lisans mezunu", "/onlisans-mezunu-kamu-ilanlari/"),
     ("Lisans mezunu", "/lisans-mezunu-kamu-ilanlari/"),
     ("KPSS P3", "/kpss-p3-ilanlari/"),
     ("KPSS P93", "/kpss-p93-ilanlari/"),
     ("KPSS P94", "/kpss-p94-ilanlari/"),
+    ("Son başvurusu yaklaşanlar", "/son-basvurusu-yaklasan-ilanlar/"),
+    ("Bu hafta eklenenler", "/bu-hafta-eklenen-kamu-ilanlari/"),
+)
+HAKKINDA_LINKLERI = (
+    ("Hakkında", "/hakkinda/"),
+    ("Nasıl çalışır?", "/nasil-calisir/"),
+    ("İletişim", "/iletisim/"),
+    ("Gizlilik", "/gizlilik/"),
 )
 
 
+def _link_listesi(linkler: tuple[tuple[str, str], ...]) -> str:
+    return "".join(f'<li><a href="{yol}">{e(ad)}</a></li>' for ad, yol in linkler)
+
+
 def _alt_bilgi(simdi: datetime, mevcut_yollar: frozenset[str]) -> str:
-    linkler = "".join(
-        f'<li><a href="{yol}">{e(ad)}</a></li>'
-        for ad, yol in ALT_LINKLER
-        if yol in mevcut_yollar
-    )
+    kategoriler = tuple((ad, yol) for ad, yol in ALT_LINKLER if yol in mevcut_yollar)
     zaman = simdi.astimezone(TR_SAAT)
     return (
         '<footer class="alt"><div class="kap">'
-        f'<nav aria-label="Kategoriler"><ul class="alt-linkler">{linkler}</ul></nav>'
+        '<div class="alt-gruplar">'
+        '<nav aria-labelledby="alt-kategori"><h2 class="alt-baslik" id="alt-kategori">Kategoriler</h2>'
+        f'<ul class="alt-linkler">{_link_listesi(kategoriler)}</ul></nav>'
+        '<nav aria-labelledby="alt-hakkinda"><h2 class="alt-baslik" id="alt-hakkinda">Kamu hakkında</h2>'
+        f'<ul class="alt-linkler">{_link_listesi(HAKKINDA_LINKLERI)}</ul></nav>'
+        "</div>"
         f'<p class="dipnot">{e(UYARI)}</p>'
         f'<p class="dipnot">Son güncelleme: {tarih_tr(zaman.date(), yil=True)} '
         f"{zaman:%H:%M}. Kaynak: kamuilan.sbb.gov.tr ilanları.</p>"
         "</div></footer>"
+    )
+
+
+def alt_cubuk(kampanya: str) -> str:
+    """Mobilde altta sabit uygulama çubuğu (JS'siz; masaüstünde CSS ile gizlenir)."""
+    ios, android = magaza_linkleri(kampanya)
+    return (
+        '<div class="alt-cubuk" role="complementary" aria-label="Kamu uygulaması">'
+        '<span class="alt-cubuk-metin"><b>Uygulamada aç</b><span>ya da ücretsiz indir</span></span>'
+        f'<a class="mini" href="{e(android)}">Android</a>'
+        f'<a class="mini" href="{e(ios)}">iPhone</a>'
+        "</div>"
+    )
+
+
+def _font_onyukleme() -> str:
+    return "".join(
+        f'<link rel="preload" href="/fontlar/pjs-{agirlik}.woff2" as="font" type="font/woff2" crossorigin>'
+        for agirlik in FONT_AGIRLIKLARI
     )
 
 
@@ -117,16 +167,16 @@ def sayfa(
     return (
         "<!DOCTYPE html>\n"
         '<html lang="tr"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
         f"<title>{e(bas.baslik)}</title>"
         f'<meta name="description" content="{e(bas.aciklama)}">'
         f'<meta name="robots" content="{robots}">'
         f'<link rel="canonical" href="{e(kanonik)}">'
         '<meta name="theme-color" content="#16265C">'
-        f'<link rel="preload" href="/fontlar/pjs-400.woff2" as="font" type="font/woff2" crossorigin>'
-        f'<link rel="preload" href="/fontlar/pjs-800.woff2" as="font" type="font/woff2" crossorigin>'
+        f"{apple_uygulama_meta(kanonik if bas.uygulama_argumani else None)}"
+        f"{_font_onyukleme()}"
         f'<link rel="stylesheet" href="{CSS_YOLU}">'
-        '<link rel="icon" type="image/png" href="/kamu-ikon-96.png">'
+        f'<link rel="icon" type="image/png" href="{IKON_KUCUK}">'
         f'<link rel="apple-touch-icon" href="{IKON}">'
         f'<meta property="og:title" content="{e(bas.baslik)}">'
         f'<meta property="og:description" content="{e(bas.aciklama)}">'
@@ -134,12 +184,16 @@ def sayfa(
         f'<meta property="og:type" content="{bas.og_turu}">'
         f'<meta property="og:site_name" content="{SITE_ADI}">'
         '<meta property="og:locale" content="tr_TR">'
-        f'<meta property="og:image" content="{SITE_URL}{IKON}">'
-        '<meta name="twitter:card" content="summary">'
+        f'<meta property="og:image" content="{SITE_URL}{OG_GORSEL}">'
+        '<meta property="og:image:width" content="1200">'
+        '<meta property="og:image:height" content="630">'
+        '<meta property="og:image:alt" content="Kamu: kamu personel alım ilanları">'
+        '<meta name="twitter:card" content="summary_large_image">'
         f"{yapisal}</head><body>"
         f"{_kunye(bas.bolum, simdi)}"
         f'<main class="kap">{govde}</main>'
         f"{_alt_bilgi(simdi, mevcut_yollar)}"
+        f"{alt_cubuk(bas.kampanya)}"
         "</body></html>\n"
     )
 
@@ -168,8 +222,12 @@ def rozet(ilan: Ilan, bugun: date) -> str:
 def ilan_karti(ilan: Ilan, bugun: date) -> str:
     kadro = f"<b>{sayi_tr(ilan.kisi_sayisi)}</b> kadro · " if ilan.kisi_sayisi else ""
     kalan = (ilan.basvuru_bitis - bugun).days
-    sure = f"{kalan} gün" if kalan > ACIL_GUN_SINIRI else ""
-    sure_html = f' · <span class="kalan">{sure}</span>' if sure else ""
+    if kalan < 0:
+        sure_html = ' · <span class="kapali-etiket">Süresi doldu</span>'
+    elif kalan > ACIL_GUN_SINIRI:
+        sure_html = f' · <span class="kalan">{kalan} gün</span>'
+    else:
+        sure_html = ""
     return (
         f'<li class="kart" data-tur="{ilan.tur_kodu}"><a href="{ilan.yol}">'
         f'<span class="kart-ust"><span class="tur">{e(ilan.tur_etiketi)}</span>'

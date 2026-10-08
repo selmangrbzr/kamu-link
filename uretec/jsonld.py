@@ -132,13 +132,32 @@ def ekmek_kirintisi(ogeler: list[tuple[str, str]]) -> dict[str, Any]:
     }
 
 
+SITE_ALTERNATIF_ADI = "Kamu: Memur Alım İlanları"
+PLAY_URL = "https://play.google.com/store/apps/details?id=com.selman.memur_ilanlari"
+APP_STORE_URL = "https://apps.apple.com/tr/app/id6792290422"
+INSTAGRAM_URL = "https://www.instagram.com/kamu.uygulama/"
+
+
 def web_sitesi() -> dict[str, Any]:
     return {
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": SITE_ADI,
+        "alternateName": SITE_ALTERNATIF_ADI,
         "url": SITE_URL + "/",
         "inLanguage": "tr-TR",
+    }
+
+
+def organizasyon() -> dict[str, Any]:
+    return {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": SITE_ADI,
+        "alternateName": SITE_ALTERNATIF_ADI,
+        "url": SITE_URL + "/",
+        "logo": SITE_URL + "/kamu-icon-512.png",
+        "sameAs": [PLAY_URL, APP_STORE_URL, INSTAGRAM_URL],
     }
 
 

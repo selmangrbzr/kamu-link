@@ -235,20 +235,37 @@ def test_son_gun_bugunse_ilan_hala_acik():
 
 # --- Merkez sayfaları --------------------------------------------------------
 
-def test_bos_merkez_sayfasi_uretilmez():
+def iki_ilan(**alanlar):
+    """Aynı özellikte iki açık ilan (merkez indeks eşiği 2)."""
+    return [satir(**alanlar), satir(id="1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f", **alanlar)]
+
+
+def test_sabit_merkez_bosken_de_uretilir_ama_noindex_ve_sitemap_disi():
     derleme = derle([satir()], SIMDI, en_az_acik=1)  # yalnızca sözleşmeli, lisans, P3, İstanbul
-    assert "/sozlesmeli-personel-alimlari/" in derleme.sayfalar
-    assert "/lisans-mezunu-kamu-ilanlari/" in derleme.sayfalar
-    assert "/kpss-p3-ilanlari/" in derleme.sayfalar
+    site_haritasi = {y for y, _ in derleme.sitemap}
     for bos in ("/memur-alimlari/", "/isci-alimlari/", "/lise-mezunu-kamu-ilanlari/",
-                "/kpss-p94-ilanlari/", "/sehir/ankara/"):
-        assert bos not in derleme.sayfalar
-        assert bos not in derle([satir()], SIMDI, en_az_acik=1).sayfalar["/"]
+                "/kpss-p94-ilanlari/", "/belediye-personel-alimlari/"):
+        html = derleme.sayfalar[bos]
+        assert "Şu an açık ilan yok" in html
+        assert 'content="noindex,follow"' in html
+        assert 'aria-labelledby="diger"' in html  # diğer kategorilere linkler
+        assert bos not in site_haritasi
+    assert "/sehir/ankara/" not in derleme.sayfalar  # şehirlerde eski davranış
 
 
-def test_yalnizca_suresi_gecmis_ilani_olan_merkez_uretilmez():
+def test_esik_alti_merkez_noindex_esik_ustu_indekslenir():
+    tek = derle([satir()], SIMDI, en_az_acik=1)
+    assert 'content="noindex,follow"' in tek.sayfalar["/sozlesmeli-personel-alimlari/"]
+    iki = derle(iki_ilan(), SIMDI, en_az_acik=1)
+    assert 'content="index,follow' in iki.sayfalar["/sozlesmeli-personel-alimlari/"]
+    assert "/sozlesmeli-personel-alimlari/" in {y for y, _ in iki.sitemap}
+
+
+def test_yalnizca_suresi_gecmis_ilani_olan_merkez_kapananlari_gosterir():
     gecmis_memur = satir(id="eeee3333ffffeeee3333ffffeeee3333", ilan_turu="Memur", basvuru_bitis="2026-09-30")
-    assert "/memur-alimlari/" not in derle([satir(), gecmis_memur], SIMDI, en_az_acik=1).sayfalar
+    html = derle([satir(), gecmis_memur], SIMDI, en_az_acik=1).sayfalar["/memur-alimlari/"]
+    assert "Şu an açık ilan yok" in html and "Son kapanan ilanlar" in html
+    assert 'content="noindex,follow"' in html
 
 
 def test_az_ilanli_sehir_sayfasi_noindex_ve_sitemap_disi():
@@ -280,13 +297,17 @@ def test_ana_sayfada_yonlendirme_yok():
 
 
 def test_sitemap_lastmod_ve_kapsam():
-    derleme = derle([satir()], SIMDI, en_az_acik=1)
+    derleme = derle(iki_ilan(), SIMDI, en_az_acik=1)
     xml = sitemap_xml(derleme.sitemap)
     assert xml.startswith('<?xml version="1.0" encoding="UTF-8"?>')
     assert "<loc>https://kamuuygulama.me/</loc>" in xml
     assert "<loc>https://kamuuygulama.me/sozlesmeli-personel-alimlari/</loc>" in xml
     assert xml.count("<url>") == xml.count("<lastmod>")
     assert re.search(r"<lastmod>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00</lastmod>", xml)
+    # Merkezlerin lastmod'u derleme zamanıdır.
+    zamanlar = dict(derleme.sitemap)
+    assert zamanlar["/sozlesmeli-personel-alimlari/"] == SIMDI
+    assert zamanlar["/"] == SIMDI
     for yol, _ in derleme.sitemap:
         assert 'content="index,follow' in derleme.sayfalar[yol]
 
