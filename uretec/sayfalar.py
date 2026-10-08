@@ -1,396 +1,61 @@
-"""İlan, merkez, ana sayfa, bilgi ve 404 sayfalarının HTML üretimi."""
+"""Merkez, ana sayfa, bilgi ve 404 sayfaları. İlan sayfası ilan_sayfasi.py'de."""
 
-from collections import Counter, defaultdict
-from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import timedelta
 
+from .baglam import Baglam
 from .bilgi import BilgiSayfasi, bilgi_sayfasi_parcalari
-from .jsonld import ekmek_kirintisi, is_ilani, organizasyon, web_sitesi
+from .ilan_sayfasi import ilan_basliklari, ilan_sayfasi, kisalt
+from .jsonld import ekmek_kirintisi, organizasyon, web_sitesi
 from .merkezler import Merkez, MerkezVerisi
-from .metin import kalan_gun_metni, sayi_tr, tarih_tr, tr_baslik, tr_buyuk, tr_kucuk
-from .model import TR_SAAT, Ilan, kisa_kurum_adi
+from .metin import sayi_tr
+from .model import Ilan, kisa_kurum_adi
+from .ozet import merkez_aciklamasi, ozet_parcalari
 from .sablon import (
     KAMPANYA_SEO,
-    UYARI,
     SayfaBasi,
+    bolum_bas,
     e,
     ilan_listesi,
     kirinti,
-    magaza_butonlari,
-    rozet,
-    sayfa,
-    ust_etiket,
+    siki_liste,
     uygulama_cagrisi,
 )
 
+__all__ = [
+    "Baglam", "ana_sayfa", "bilgi_sayfasi", "ilan_basliklari", "ilan_sayfasi",
+    "merkez_sayfasi", "sayfa_404",
+]
+
 KAMPANYA_ANA = "site"
-ACIKLAMA_EN_UZUN = 158
-BASLIK_SINIRI = 60
-POZISYON_BASLIK_SINIRI = 60
 ANA_SAYFA_KURUM_ADET = 12
-_AYLAR = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
-          "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
-_CINSIYET = {"karma": "Kadın ve erkek", "erkek": "Yalnızca erkek", "kadın": "Yalnızca kadın"}
-_TUR_MERKEZI = {
-    "Memur": ("Memur alımları", "/memur-alimlari/"),
-    "Sözleşmeli Personel": ("Sözleşmeli personel alımları", "/sozlesmeli-personel-alimlari/"),
-    "İşçi": ("İşçi alımları", "/isci-alimlari/"),
-    "Akademik Personel": ("Akademik personel alımları", "/akademik-personel-alimlari/"),
-    "Askeri Personel": ("Askeri personel alımları", "/askeri-personel-alimlari/"),
-}
+DIZIN_SEHIR_ILK = 12
+YAKLASAN_ADET = 6
+YAKLASAN_GUN = 7
+_KPSS_TURLERI = frozenset({"Memur", "Sözleşmeli Personel", "İşçi"})
 
 
-@dataclass(frozen=True)
-class Baglam:
-    simdi: datetime
-    bugun: date
-    mevcut_yollar: frozenset[str]
-    il_yollari: dict[str, str] = field(default_factory=dict)
-    kurum_yollari: dict[str, str] = field(default_factory=dict)
-
-    @property
-    def yil(self) -> int:
-        return self.simdi.astimezone(TR_SAAT).year
-
-    def sayfa(self, bas: SayfaBasi, govde: str, jsonld: tuple[dict, ...] = ()) -> str:
-        return sayfa(bas, govde, self.simdi, self.mevcut_yollar, jsonld)
-
-
-def kisalt(metin: str, en_uzun: int = ACIKLAMA_EN_UZUN) -> str:
-    if len(metin) <= en_uzun:
-        return metin
-    return metin[: en_uzun - 1].rsplit(" ", 1)[0].rstrip(",;:") + "…"
-
-
-def _tur_merkezi(ilan: Ilan, b: Baglam) -> tuple[str, str] | None:
-    hedef = _TUR_MERKEZI.get(ilan.ilan_turu)
-    return hedef if hedef and hedef[1] in b.mevcut_yollar else None
-
-
-# --- İlan başlıkları --------------------------------------------------------
-
-def tarih_araligi(ilan: Ilan) -> str:
-    """Ayırt edici ek: "7–21 Ekim", "28 Eylül–12 Ekim" ya da "son başvuru 21 Ekim"."""
-    bitis = ilan.basvuru_bitis
-    bas = ilan.basvuru_baslangic
-    if not bas or bas > bitis:
-        return f"son başvuru {tarih_tr(bitis)}"
-    if bas.month == bitis.month:
-        return f"{bas.day}–{bitis.day} {_AYLAR[bitis.month - 1]}"
-    return f"{tarih_tr(bas)}–{tarih_tr(bitis)}"
-
-
-def ilan_basligi(ilan: Ilan, acik: bool, ek: str | None = None) -> str:
-    kadro = f"{sayi_tr(ilan.kisi_sayisi)} Kadro" if ilan.kisi_sayisi else None
-    parantez = ", ".join(x for x in (kadro, ek) if x)
-    son = ": Şartlar ve Başvuru" if acik else ": Başvuru Süresi Doldu"
-
-    is_adi = ilan.is_basligi
-    if len(is_adi) > POZISYON_BASLIK_SINIRI:
-        is_adi = kisalt(is_adi, POZISYON_BASLIK_SINIRI)
-
-    def kur(kurum: str) -> str:
-        metin = f"{kurum} {is_adi} Alımı"
-        if parantez:
-            metin += f" ({parantez})"
-        return f"{metin}{son} | Kamu"
-
-    tam = kur(ilan.belediye_adi or ilan.kurum_adi)
-    return tam if len(tam) <= BASLIK_SINIRI else kur(ilan.kisa_kurum)
-
-
-def ilan_basliklari(ilanlar: list[Ilan], bugun: date) -> dict[str, str]:
-    """Her ilana benzersiz <title>: çakışanlara tarih aralığı, o da yetmezse ilan no eklenir."""
-    basliklar = {i.id: ilan_basligi(i, i.basvuru_bitis >= bugun) for i in ilanlar}
-    ekler = (
-        lambda i: tarih_araligi(i),
-        # Slug eki benzersiz olduğu için bu adım her zaman çakışmayı çözer.
-        lambda i: f"{tarih_araligi(i)}, ilan no {i.slug.rsplit('-', 1)[1]}",
-    )
-    for ek in ekler:
-        gruplar: dict[str, list[Ilan]] = defaultdict(list)
-        for ilan in ilanlar:
-            gruplar[basliklar[ilan.id]].append(ilan)
-        for grup in gruplar.values():
-            if len(grup) > 1:
-                for ilan in grup:
-                    basliklar[ilan.id] = ilan_basligi(ilan, ilan.basvuru_bitis >= bugun, ek(ilan))
-    return basliklar
-
-
-def ilan_aciklamasi(ilan: Ilan, acik: bool) -> str:
-    kadro = f"{sayi_tr(ilan.kisi_sayisi)} kadro " if ilan.kisi_sayisi else ""
-    parcalar = [f"{ilan.belediye_adi or ilan.kurum_adi} {kadro}{ilan.is_basligi} alımı."]
-    if not acik:
-        parcalar.append(f"Başvuru süresi {tarih_tr(ilan.basvuru_bitis, yil=True)} tarihinde doldu.")
-    else:
-        parcalar.append(f"Son başvuru {tarih_tr(ilan.basvuru_bitis, yil=True)}.")
-    if ilan.egitim_seviyesi:
-        parcalar.append(f"Eğitim: {ilan.egitim_seviyesi}.")
-    if ilan.kpss_puan_turu:
-        parcalar.append(f"KPSS {ilan.kpss_puan_turu}.")
-    parcalar.append("Şartlar, belgeler ve resmî ilan linki.")
-    return kisalt(" ".join(parcalar))
-
-
-# --- İlan sayfası -----------------------------------------------------------
-
-def _veri_satiri(ilan: Ilan, b: Baglam, acik: bool) -> str:
-    kadro = sayi_tr(ilan.kisi_sayisi) if ilan.kisi_sayisi else "Resmî ilanda"
-    kadro_sinif = "veri-deger buyuk" if ilan.kisi_sayisi else "veri-deger"
-    kalan = kalan_gun_metni(ilan.basvuru_bitis, b.bugun) if acik else "Süresi doldu"
-    # Tür üst etikette zaten yazar; eğitim biliniyorsa üçüncü sütun eğitimdir.
-    if ilan.egitim_seviyesi:
-        ucuncu = (
-            '<div><span class="veri-etiket">Eğitim</span>'
-            f'<span class="veri-deger">{e(ilan.egitim_seviyesi)}</span></div>'
-        )
-    else:
-        ucuncu = (
-            '<div><span class="veri-etiket">Tür</span>'
-            f'<span class="veri-deger tur-renk" data-tur="{ilan.tur_kodu}">{e(ilan.tur_etiketi)}</span></div>'
-        )
-    return (
-        '<div class="veri">'
-        f'<div><span class="veri-etiket">Kadro</span><span class="{kadro_sinif}">{kadro}</span></div>'
-        f'<div><span class="veri-etiket">Son başvuru</span>'
-        f'<span class="veri-deger">{tarih_tr(ilan.basvuru_bitis)}</span>'
-        f'<span class="veri-alt{"" if acik else " kapali"}">{e(kalan)}</span></div>'
-        f"{ucuncu}</div>"
-    )
-
-
-def _ilan_girisi(ilan: Ilan, b: Baglam, acik: bool) -> str:
-    """Özet paragraf; belediye ilanlarında "X Belediyesi" varyantını da içerir."""
-    kurum = ilan.kurum_adi
-    if ilan.belediye_adi:
-        kurum = f"{ilan.belediye_adi} ({ilan.kurum_adi})"
-    kadro = f"{sayi_tr(ilan.kisi_sayisi)} kadro " if ilan.kisi_sayisi else ""
-    cumleler = [f"{kurum}, {kadro}{ilan.is_basligi} alımı için ilan yayımladı."]
-    bitis = tarih_tr(ilan.basvuru_bitis, yil=True)
-    if not acik:
-        cumleler.append(f"Başvurular {bitis} tarihinde sona erdi.")
-    elif ilan.basvuru_baslangic and ilan.basvuru_baslangic > b.bugun:
-        cumleler.append(
-            f"Başvurular {tarih_tr(ilan.basvuru_baslangic, yil=True)} tarihinde başlıyor, "
-            f"son başvuru {bitis}."
-        )
-    else:
-        cumleler.append(f"Son başvuru tarihi {bitis}.")
-    return f'<p class="giris">{e(" ".join(cumleler))}</p>'
-
-
-def _ilan_magaza() -> str:
-    return (
-        '<div class="ilan-magaza">'
-        "<p>Bu ilanı Kamu uygulamasında takip et; son gün yaklaşınca bildirim al.</p>"
-        f"{magaza_butonlari(KAMPANYA_SEO, 'kucuk')}"
-        "</div>"
-    )
-
-
-def _sehir_html(ilan: Ilan, b: Baglam) -> str:
-    return ", ".join(
-        f'<a href="{b.il_yollari[s]}">{e(s)}</a>' if s in b.il_yollari else e(s)
-        for s in ilan.sehirler
-    )
-
-
-def _bilgi_listesi(ilan: Ilan, b: Baglam, acik: bool) -> str:
-    kurum_yolu = b.kurum_yollari.get(ilan.kurum_slug)
-    kurum = f'<a href="{kurum_yolu}">{e(ilan.kurum_adi)}</a>' if kurum_yolu else e(ilan.kurum_adi)
-    satirlar: list[tuple[str, str]] = [
-        ("Kurum", kurum),
-        ("İlan başlığı", e(tr_baslik(ilan.pozisyon))),
-    ]
-    if ilan.kisi_sayisi:
-        satirlar.append(("Kadro sayısı", sayi_tr(ilan.kisi_sayisi)))
-    satirlar.append(("İlan türü", e(ilan.ilan_turu)))
-    if ilan.egitim_seviyesi:
-        satirlar.append(("Eğitim seviyesi", e(ilan.egitim_seviyesi)))
-    if ilan.kpss_puan_turu:
-        satirlar.append(("KPSS puan türü", e(ilan.kpss_puan_turu)))
-    if ilan.ales_puan_turu:
-        ales = ilan.ales_puan_turu
-        if ilan.ales_min_puan:
-            ales += f" (en az {ilan.ales_min_puan:g})"
-        satirlar.append(("ALES puan türü", e(ales)))
-    if ilan.yas_siniri:
-        satirlar.append(("Yaş sınırı", e(ilan.yas_siniri)))
-    if ilan.cinsiyet:
-        cinsiyet = _CINSIYET.get(ilan.cinsiyet.casefold(), ilan.cinsiyet)
-        satirlar.append(("Cinsiyet", e(cinsiyet)))
-    if ilan.sehirler:
-        satirlar.append(("Görev yeri", _sehir_html(ilan, b)))
-    if ilan.basvuru_baslangic:
-        satirlar.append(("Başvuru başlangıcı", tarih_tr(ilan.basvuru_baslangic, yil=True)))
-    satirlar.append(("Son başvuru", tarih_tr(ilan.basvuru_bitis, yil=True)))
-    if acik:
-        satirlar.append(("Kalan süre", e(kalan_gun_metni(ilan.basvuru_bitis, b.bugun))))
-    if ilan.basvuru_yeri:
-        satirlar.append(("Başvuru yeri", e(ilan.basvuru_yeri)))
-    icerik = "".join(f"<div><dt>{ad}</dt><dd>{deger}</dd></div>" for ad, deger in satirlar)
-    return f'<section aria-labelledby="bilgi"><h2 id="bilgi">İlan bilgileri</h2><dl class="bilgi">{icerik}</dl></section>'
-
-
-def _kontenjan(ilan: Ilan) -> str:
-    if not ilan.kontenjan:
-        return ""
-    adetli = ilan.kontenjan_adetleri_tutarli
-    satirlar = []
-    for k in ilan.kontenjan:
-        adet = f'<span class="kadro-adet">{sayi_tr(k.adet)}</span>' if adetli and k.adet else ""
-        nitelik = f'<p class="kadro-nitelik">{e(k.nitelik)}</p>' if k.nitelik else ""
-        ad = e(k.pozisyon) if k.pozisyon else "Kadro"
-        if k.sehir:
-            ad += f' <span class="kadro-sehir">{e(k.sehir)}</span>'
-        satirlar.append(f'<li><div class="kadro-ust"><b>{ad}</b>{adet}</div>{nitelik}</li>')
-    not_ = "" if adetli else '<p class="soluk">Kadro adetleri için resmî ilan metnine bakın.</p>'
-    return (
-        '<section aria-labelledby="kadrolar"><h2 id="kadrolar">Kadro dağılımı</h2>'
-        f'<ul class="kadrolar">{"".join(satirlar)}</ul>{not_}</section>'
-    )
-
-
-def _metin_bolumu(kimlik: str, baslik: str, metin: str | None) -> str:
-    if not metin:
-        return ""
-    return f'<section aria-labelledby="{kimlik}"><h2 id="{kimlik}">{baslik}</h2><p>{e(metin)}</p></section>'
-
-
-def _kaynaklar(ilan: Ilan) -> str:
-    linkler = []
-    if ilan.pdf_url:
-        linkler.append(
-            f'<a class="dugme dugme-cizgi" href="{e(ilan.pdf_url)}" rel="noopener nofollow">İlan metni (PDF)</a>'
-        )
-    if ilan.detay_link:
-        linkler.append(
-            f'<a class="dugme dugme-cizgi" href="{e(ilan.detay_link)}" rel="noopener">'
-            "kamuilan.sbb.gov.tr'de resmî ilan</a>"
-        )
-    if not linkler:
-        return ""
-    return (
-        '<section aria-labelledby="kaynak"><h2 id="kaynak">Resmî kaynak</h2>'
-        f'<div class="kaynaklar">{"".join(linkler)}</div></section>'
-    )
-
-
-def _benzerler(
-    ilan: Ilan, b: Baglam, benzerler: list[Ilan], tur_merkezi: tuple[str, str] | None
-) -> str:
-    linkler = []
-    kurum_yolu = b.kurum_yollari.get(ilan.kurum_slug)
-    if kurum_yolu:
-        linkler.append(f'<a class="ok-link" href="{kurum_yolu}">Tüm {e(ilan.kurum_adi)} ilanları</a>')
-    if tur_merkezi:
-        linkler.append(f'<a class="ok-link" href="{tur_merkezi[1]}">Tüm {e(tr_kucuk(tur_merkezi[0]))}</a>')
-    if not benzerler and not linkler:
-        return ""
-    liste = ilan_listesi(benzerler, b.bugun) if benzerler else ""
-    return (
-        '<section aria-labelledby="benzer"><h2 id="benzer">Benzer açık ilanlar</h2>'
-        f'{liste}<p class="linkler">{"".join(linkler)}</p></section>'
-    )
-
-
-def ilan_sayfasi(ilan: Ilan, b: Baglam, benzerler: list[Ilan], baslik: str | None = None) -> str:
-    acik = ilan.basvuru_bitis >= b.bugun
-    tur_merkezi = _tur_merkezi(ilan, b)
-    kirinti_ogeleri = [("Ana sayfa", "/")]
-    if tur_merkezi:
-        kirinti_ogeleri.append(tur_merkezi)
-    kirinti_ogeleri.append((f"{ilan.kisa_kurum} {ilan.is_basligi}", ilan.yol))
-
-    durum = (
-        ""
-        if acik
-        else '<div class="durum" role="status"><b>Başvuru süresi doldu.</b> '
-        f"Son başvuru tarihi {tarih_tr(ilan.basvuru_bitis, yil=True)} idi. "
-        "Benzer açık ilanlar aşağıda.</div>"
-    )
-    etiket = tr_buyuk(f"{ilan.tur_etiketi} ilanı · {tarih_tr(ilan.eklenme_gunu)} eklendi")
-    govde = (
-        f'{kirinti(kirinti_ogeleri)}<article class="ilan">'
-        f"{ust_etiket(etiket)}"
-        f'<h1><span class="h1-kurum">{e(ilan.kurum_adi)}</span>'
-        f"{e(ilan.is_basligi)} alımı</h1>"
-        f"{rozet(ilan, b.bugun) if acik else ''}{durum}"
-        f"{_ilan_girisi(ilan, b, acik)}"
-        f"{_veri_satiri(ilan, b, acik)}"
-        f"{_ilan_magaza()}"
-        f"{_bilgi_listesi(ilan, b, acik)}"
-        f"{_kontenjan(ilan)}"
-        f"{_metin_bolumu('sartlar', 'Özel şartlar', ilan.ozel_sartlar)}"
-        f"{_metin_bolumu('belgeler', 'Başvuru belgeleri', ilan.basvuru_belgeleri)}"
-        f"{_kaynaklar(ilan)}"
-        f'<aside class="uyari" role="note">{e(UYARI)}</aside>'
-        "</article>"
-        + uygulama_cagrisi(
-            "Bu tür ilanlar çıktığında bildirim al",
-            f"Kamu, {tr_kucuk(ilan.tur_etiketi)} ilanlarını ve son başvuru tarihlerini takip eder. "
-            "Yeni ilan çıktığında ve son gün yaklaştığında telefonuna bildirim gelir. Ücretsiz.",
-            KAMPANYA_SEO,
-        )
-        + _benzerler(ilan, b, benzerler, tur_merkezi)
-    )
-    bas = SayfaBasi(
-        baslik=baslik or ilan_basligi(ilan, acik),
-        aciklama=ilan_aciklamasi(ilan, acik),
-        yol=ilan.yol,
-        indekslenebilir=acik,
-        og_turu="article",
-        bolum="İLAN",
-        uygulama_argumani=True,
-    )
-    jsonld: tuple[dict, ...] = (ekmek_kirintisi(kirinti_ogeleri),)
-    # JobPosting yalnızca başvuru penceresi açıkken: süresi dolmamış ve başlamış.
-    if acik and ilan.basvuru_basladi_mi(b.bugun):
-        jsonld = (is_ilani(ilan),) + jsonld
-    return b.sayfa(bas, govde, jsonld)
+def _sayilar_cumlesi(ilanlar: tuple[Ilan, ...] | list[Ilan], b: Baglam, bugun_on_ek: bool) -> str:
+    """"Bugün 104 açık ilan ve toplam 2.950 kadro var. Son 7 günde 33 yeni ilan eklendi."."""
+    if not ilanlar:
+        return "Şu an açık ilan yok."
+    kadro = sum(i.kisi_sayisi or 0 for i in ilanlar)
+    yeni = sum(1 for i in ilanlar if i.eklenme_tarihi >= b.simdi - timedelta(days=7))
+    bas = "Bugün " if bugun_on_ek else ""
+    cumle = f"{bas}<b>{sayi_tr(len(ilanlar))}</b> açık ilan"
+    cumle += f" ve toplam <b>{sayi_tr(kadro)}</b> kadro var." if kadro else " var."
+    if yeni:
+        cumle += f" Son 7 günde <b>{sayi_tr(yeni)}</b> yeni ilan eklendi."
+    return cumle
 
 
 # --- Merkez sayfası ----------------------------------------------------------
 
-def _istatistik(ilanlar: list[Ilan] | tuple[Ilan, ...], b: Baglam) -> str:
-    kadro = sum(i.kisi_sayisi or 0 for i in ilanlar)
-    hafta = b.simdi - timedelta(days=7)
-    yeni = sum(1 for i in ilanlar if i.eklenme_tarihi >= hafta)
-    kutular = [("açık ilan", sayi_tr(len(ilanlar)))]
-    if kadro:
-        kutular.append(("kadro", sayi_tr(kadro)))
-    kutular.append(("son 7 günde", sayi_tr(yeni)))
-    return '<div class="sayilar">' + "".join(
-        f'<div><span class="sayi">{deger}</span><span class="sayi-etiket">{ad}</span></div>'
-        for ad, deger in kutular
-    ) + "</div>"
-
-
-def merkez_ozeti(ilanlar: list[Ilan] | tuple[Ilan, ...], kurum_sayfasi: bool = False) -> str:
-    """Veriden üretilen, merkeze özgü özet cümleleri."""
-    cumleler = []
-    if kurum_sayfasi:
-        turler = [t for t, _ in Counter(i.ilan_turu for i in ilanlar).most_common()]
-        cumleler.append(f"İlan türleri: {', '.join(turler)}.")
-        iller = [il for il, _ in Counter(il for i in ilanlar for il in i.iller).most_common(5)]
-        if iller:
-            cumleler.append(f"Görev yerleri: {', '.join(iller)}.")
-    else:
-        kurumlar = [k for k, _ in Counter(i.kisa_kurum for i in ilanlar).most_common(3)]
-        cumleler.append(f"En çok ilan veren kurumlar: {', '.join(kurumlar)}.")
-    en_buyuk = max(ilanlar, key=lambda i: i.kisi_sayisi or 0)
-    if en_buyuk.kisi_sayisi and len(ilanlar) > 1:
-        cumleler.append(
-            f"En büyük alım {en_buyuk.kisa_kurum} {en_buyuk.is_basligi}, "
-            f"{sayi_tr(en_buyuk.kisi_sayisi)} kadro."
-        )
-    en_yakin = min(ilanlar, key=lambda i: i.basvuru_bitis)
-    cumleler.append(
-        f"Son başvurusu en yakın ilan {en_yakin.kisa_kurum} {en_yakin.is_basligi}, "
-        f"{tarih_tr(en_yakin.basvuru_bitis)}."
-    )
-    return " ".join(cumleler)
+def _ozet_html(veri: MerkezVerisi, b: Baglam) -> str:
+    parcalar = ozet_parcalari(veri, b.simdi, b.mevcut_yollar)
+    if not parcalar:
+        return ""
+    metin = " ".join(f'<a href="{link}">{e(c)}</a>' if link else e(c) for c, link in parcalar)
+    return f'<p class="ozet-cumleler">{metin}</p>'
 
 
 def _diger_kategoriler(merkez: Merkez, digerleri: list[Merkez]) -> str:
@@ -399,9 +64,46 @@ def _diger_kategoriler(merkez: Merkez, digerleri: list[Merkez]) -> str:
     )
     linkler += '<li><a href="/#kategori">Tüm kategoriler</a></li>'
     return (
-        '<nav aria-labelledby="diger"><h2 id="diger">Diğer kategoriler</h2>'
-        f'<ul class="cipler">{linkler}</ul></nav>'
+        '<nav class="dizin-grup diger" aria-labelledby="diger">'
+        f'{bolum_bas("diger", "Diğer kategoriler")}'
+        f'<div class="dizin dizin-tek"><ul>{linkler}</ul></div></nav>'
     )
+
+
+def _liste_bolumu(veri: MerkezVerisi, b: Baglam, ulusal: list[Ilan] | None) -> str:
+    merkez = veri.merkez
+    if not veri.acik:
+        html = (
+            '<section class="bolum" aria-labelledby="liste">'
+            f'{bolum_bas("liste", "Açık ilanlar")}'
+            '<div class="durum" role="status"><b>Şu an açık ilan yok.</b> Yeni ilan '
+            "yayımlandığında bu sayfa günde dört kez güncellenir. Diğer kategorilerdeki "
+            "açık ilanlara aşağıdan ulaşabilirsin.</div></section>"
+        )
+        if veri.kapanan:
+            html += (
+                '<section class="bolum" aria-labelledby="kapanan">'
+                f'{bolum_bas("kapanan", "Son kapanan ilanlar")}'
+                f"{ilan_listesi(list(veri.kapanan), b.bugun)}</section>"
+            )
+        return html
+    not_ = "Son günü yakın olan üstte" if merkez.siralama == "bitis" else "En yeni üstte"
+    liste = ilan_listesi(
+        veri.sirali_acik, b.bugun, b.yeni_sinir,
+        tur=merkez.grup != "tur", kurum=merkez.grup != "kurum",
+    )
+    html = (
+        '<section class="bolum" aria-labelledby="liste">'
+        f'{bolum_bas("liste", "Açık ilanlar", f"<span class=not>{not_}</span>")}{liste}</section>'
+    )
+    if merkez.il and ulusal:
+        html += (
+            '<section class="bolum" aria-labelledby="ulusal">'
+            f'{bolum_bas("ulusal", "Türkiye genelinde kadro açan ilanlar")}'
+            f'<p class="soluk">Bu ilanlar {e(merkez.il)} dahil çok sayıda ilde kadro içeriyor.</p>'
+            f"{ilan_listesi(ulusal, b.bugun, b.yeni_sinir)}</section>"
+        )
+    return html
 
 
 def merkez_sayfasi(
@@ -411,73 +113,42 @@ def merkez_sayfasi(
     ulusal: list[Ilan] | None = None,
 ) -> str:
     merkez = veri.merkez
-    parcalar = [
-        kirinti([("Ana sayfa", "/"), (merkez.h1, merkez.yol)]),
-        ust_etiket(merkez.etiket),
-        f"<h1>{e(merkez.h1)}</h1>",
-        f'<p class="giris">{e(merkez.giris)}</p>',
-    ]
-    if merkez.uyari:
-        parcalar.append(f'<aside class="uyari ust" role="note">{e(merkez.uyari)}</aside>')
-    if veri.acik:
-        parcalar += [
-            _istatistik(veri.acik, b),
-            f'<p class="ozet">{e(merkez_ozeti(veri.acik, merkez.grup == "kurum"))}</p>',
-            '<section aria-labelledby="liste"><h2 id="liste">Açık ilanlar</h2>'
-            f"{ilan_listesi(veri.sirali_acik, b.bugun)}</section>",
-        ]
-    else:
-        parcalar.append(
-            '<div class="durum bos" role="status"><b>Şu an açık ilan yok.</b> '
-            "Yeni ilan yayımlandığında bu sayfa günde dört kez güncellenir. Diğer "
-            "kategorilerdeki açık ilanlara aşağıdan ulaşabilirsin.</div>"
-        )
-    if merkez.il and ulusal:
-        parcalar.append(
-            '<section aria-labelledby="ulusal"><h2 id="ulusal">Türkiye genelinde kadro açan ilanlar</h2>'
-            f'<p class="soluk">Bu ilanlar {e(merkez.il)} dahil çok sayıda ilde kadro içerir.</p>'
-            f"{ilan_listesi(ulusal, b.bugun)}</section>"
-        )
-    if not veri.acik and veri.kapanan:
-        parcalar.append(
-            '<section aria-labelledby="kapanan"><h2 id="kapanan">Son kapanan ilanlar</h2>'
-            f"{ilan_listesi(list(veri.kapanan), b.bugun)}</section>"
-        )
-    parcalar.append(
-        uygulama_cagrisi(
-            "Yeni ilan çıktığında ilk sen gör",
-            "Kamu uygulamasında ilan türü, eğitim ve şehir seçerek yalnızca sana uyan "
-            "ilanlar için bildirim alabilirsin. Ücretsiz.",
-            KAMPANYA_SEO,
-        )
+    uyari = f'<p class="uyari-not" role="note">{e(merkez.uyari)}</p>' if merkez.uyari else ""
+    cagri = uygulama_cagrisi(
+        "Yeni ilan çıkınca haberin olsun",
+        "İlan türü, eğitim ve şehir seç; yalnızca sana uyan ilanlar için bildirim al. Ücretsiz.",
+        KAMPANYA_SEO,
+        "yalniz-genis",
+        "cagri-merkez",
     )
-    parcalar.append(_diger_kategoriler(merkez, digerleri))
-    if veri.acik:
-        aciklama = (
-            f"{merkez.h1}: {sayi_tr(len(veri.acik))} açık ilan. Kadro, eğitim şartı, KPSS "
-            "puan türü ve son başvuru tarihleriyle günde dört kez güncellenen liste."
-        )
-    else:
-        aciklama = f"{merkez.h1}: şu an açık ilan yok. Yeni ilan yayımlandığında bu sayfa güncellenir."
+    govde = (
+        f"{kirinti([('Ana sayfa', '/'), (merkez.h1, merkez.yol)])}"
+        '<section class="manset merkez-manset"><div>'
+        f'<h1>{e(merkez.h1)}</h1><p class="manset-satir">{_sayilar_cumlesi(veri.acik, b, False)}</p>'
+        "</div></section>"
+        f'<p class="giris">{e(merkez.giris)}</p>{uyari}{_ozet_html(veri, b)}'
+        '<div class="merkez-izgara">'
+        f"<div>{_liste_bolumu(veri, b, ulusal)}</div>"
+        f'<aside class="bolum">{cagri}{_diger_kategoriler(merkez, digerleri)}</aside>'
+        "</div>"
+    )
     bas = SayfaBasi(
         baslik=f"{merkez.baslik_metni(b.yil)} | Kamu",
-        aciklama=kisalt(aciklama),
+        aciklama=kisalt(merkez_aciklamasi(veri)),
         yol=merkez.yol,
         indekslenebilir=veri.indekslenebilir,
-        bolum=merkez.etiket,
     )
     jsonld = (ekmek_kirintisi([("Ana sayfa", "/"), (merkez.h1, merkez.yol)]),)
-    return b.sayfa(bas, "".join(parcalar), jsonld)
+    return b.sayfa(bas, govde, jsonld)
 
 
-# --- Ana sayfa, bilgi sayfaları ve 404 --------------------------------------
+# --- Ana sayfa ----------------------------------------------------------------
 
-_ANA_GRUPLAR = (
+_DIZIN_GRUPLARI = (
     ("İlan türü", "tur"),
     ("Eğitim", "egitim"),
     ("KPSS puan türü", "puan"),
     ("Öne çıkanlar", "ozel"),
-    ("Şehir", "sehir"),
     ("Kurum", "kurum"),
 )
 
@@ -488,76 +159,114 @@ def _cip_adi(merkez: Merkez) -> str:
     return kisa_kurum_adi(merkez.ad) if merkez.grup == "kurum" else merkez.ad
 
 
-def kategori_cipleri(veriler: list[MerkezVerisi]) -> str:
-    """Ana sayfa çipleri: yalnızca indekslenebilir merkezler."""
+def _dizin_li(veriler: list[MerkezVerisi]) -> str:
+    return "".join(
+        f'<li><a href="{v.merkez.yol}">{e(_cip_adi(v.merkez))}<span>{len(v.acik)}</span></a></li>'
+        for v in veriler
+    )
+
+
+def kategori_dizini(veriler: list[MerkezVerisi]) -> str:
+    """Kategoriler gazete dizini gibi; yalnızca indekslenebilir merkezler."""
     bloklar = []
-    for baslik, grup in _ANA_GRUPLAR:
+    for baslik, grup in _DIZIN_GRUPLARI:
         uygun = [v for v in veriler if v.merkez.grup == grup and v.indekslenebilir]
         if grup == "kurum":
             uygun = sorted(uygun, key=lambda v: -len(v.acik))[:ANA_SAYFA_KURUM_ADET]
-        if not uygun:
-            continue
-        cipler = "".join(
-            f'<li><a href="{v.merkez.yol}">{e(_cip_adi(v.merkez))} '
-            f'<span class="adet">{len(v.acik)}</span></a></li>'
-            for v in uygun
+        if uygun:
+            bloklar.append(f'<div class="dizin-grup"><h3>{baslik}</h3><ul>{_dizin_li(uygun)}</ul></div>')
+    sehirler = sorted(
+        (v for v in veriler if v.merkez.grup == "sehir" and v.indekslenebilir),
+        key=lambda v: (-len(v.acik), v.merkez.il or ""),
+    )
+    if sehirler:
+        ilk, kalan = sehirler[:DIZIN_SEHIR_ILK], sehirler[DIZIN_SEHIR_ILK:]
+        tumu = ""
+        if kalan:
+            tumu = (
+                f'<details class="tumu"><summary>Tüm şehirler ({len(sehirler)})</summary>'
+                f'<ul>{_dizin_li(sorted(kalan, key=lambda v: v.merkez.il or ""))}</ul></details>'
+            )
+        bloklar.append(
+            f'<div class="dizin-grup dizin-sehir"><h3>Şehir</h3><ul>{_dizin_li(ilk)}</ul>{tumu}</div>'
         )
-        bloklar.append(f'<div class="kategori"><h3>{baslik}</h3><ul class="cipler">{cipler}</ul></div>')
-    return "".join(bloklar)
+    return f'<div class="dizin">{"".join(bloklar)}</div>'
+
+
+def _yaklasanlar(acik: list[Ilan], b: Baglam) -> list[Ilan]:
+    """Önümüzdeki 7 günde bitenler; KPSS ile alım yapan türler (memur, sözleşmeli, işçi) önce."""
+    yakin = sorted(
+        (i for i in acik if (i.basvuru_bitis - b.bugun).days <= YAKLASAN_GUN),
+        key=lambda i: (i.basvuru_bitis, i.id),
+    )
+    kpss = [i for i in yakin if i.ilan_turu in _KPSS_TURLERI]
+    return (kpss + [i for i in yakin if i.ilan_turu not in _KPSS_TURLERI])[:YAKLASAN_ADET]
+
+
+def _ana_bolumler(acik: list[Ilan], b: Baglam) -> str:
+    son = sorted(acik, key=lambda i: (i.eklenme_tarihi, i.id), reverse=True)[:12]
+    buyuk = sorted(
+        (i for i in acik if i.kisi_sayisi), key=lambda i: (i.kisi_sayisi or 0, i.id), reverse=True
+    )[:6]
+    yaklasan = _yaklasanlar(acik, b)
+    bolumler = []
+    if yaklasan:
+        tumu = '<a href="/son-basvurusu-yaklasan-ilanlar/">Tümü</a>'
+        bolumler.append(
+            '<section class="bolum yaklasan" aria-labelledby="yak">'
+            f'{bolum_bas("yak", "Son başvurusu yaklaşanlar", tumu)}{siki_liste(yaklasan, b.bugun)}</section>'
+        )
+    hafta = '<a href="/bu-hafta-eklenen-kamu-ilanlari/">Bu hafta eklenenler</a>'
+    bolumler.append(
+        '<section class="bolum son" aria-labelledby="son">'
+        f'{bolum_bas("son", "Son eklenen ilanlar", hafta)}{ilan_listesi(son, b.bugun)}</section>'
+    )
+    if buyuk:
+        bolumler.append(
+            '<section class="bolum buyuk" aria-labelledby="buyuk">'
+            f'{bolum_bas("buyuk", "En büyük alımlar")}{ilan_listesi(buyuk, b.bugun, b.yeni_sinir)}</section>'
+        )
+    return f'<div class="ana-izgara">{"".join(bolumler)}</div>'
 
 
 def ana_sayfa(acik: list[Ilan], b: Baglam, veriler: list[MerkezVerisi]) -> str:
-    son = sorted(acik, key=lambda i: (i.eklenme_tarihi, i.id), reverse=True)[:12]
-    buyuk = sorted(
-        (i for i in acik if i.kisi_sayisi),
-        key=lambda i: (i.kisi_sayisi or 0, i.id),
-        reverse=True,
-    )[:6]
-    buyuk_html = (
-        f'<section aria-labelledby="buyuk"><h2 id="buyuk">En büyük alımlar</h2>'
-        f"{ilan_listesi(buyuk, b.bugun)}</section>"
-        if buyuk
-        else ""
+    cagri = uygulama_cagrisi(
+        "Yeni ilan çıkınca haberin olsun",
+        "Kamu, ilanları günde dört kez tarar; yeni ilan çıktığında ve son gün yaklaştığında "
+        "bildirim gönderir. Ücretsiz.",
+        KAMPANYA_ANA,
+        "manset-cagri yalniz-genis",
+        "cagri-ana",
     )
     govde = (
-        '<section class="kahraman">'
-        f"{ust_etiket('KAMU PERSONEL ALIMLARI')}"
-        "<h1>Kamu ilanları, son başvuru kaçmadan</h1>"
-        '<p class="giris">Memur, sözleşmeli, işçi ve akademik personel alımları tek '
-        "yerde. İlanın şartlarını, kadro sayısını ve son başvuru tarihini sade bir "
-        "sayfada gör; uygulamayla yeni ilan çıktığında bildirim al.</p>"
-        f"{magaza_butonlari(KAMPANYA_ANA)}"
-        f"{_istatistik(acik, b)}"
-        "</section>"
-        f'<section aria-labelledby="son"><h2 id="son">Son eklenen ilanlar</h2>'
-        f"{ilan_listesi(son, b.bugun)}"
-        '<p class="linkler"><a class="ok-link" href="/bu-hafta-eklenen-kamu-ilanlari/">'
-        "Bu hafta eklenen tüm ilanlar</a>"
-        '<a class="ok-link" href="/son-basvurusu-yaklasan-ilanlar/">Son başvurusu yaklaşanlar</a></p>'
-        "</section>"
-        f"{buyuk_html}"
-        '<section aria-labelledby="kategori"><h2 id="kategori">Kategoriler</h2>'
-        f"{kategori_cipleri(veriler)}</section>"
-        '<section aria-labelledby="nasil"><h2 id="nasil">'
-        '<a class="baslik-link" href="/nasil-calisir/">Bu sayfalar nasıl hazırlanıyor?</a></h2>'
-        "<p>İlanlar kamuilan.sbb.gov.tr'de yayımlanan kamu personel alım ilanlarından "
-        "günde dört kez otomatik olarak alınır. İlan metnindeki kadro, eğitim, puan "
-        "türü ve tarih bilgileri yapay zekâyla çıkarılır; bu yüzden hata içerebilir. Her "
-        "ilan sayfasında resmî ilan metnine giden link vardır, başvurmadan önce "
-        "mutlaka resmî ilanı oku.</p>"
-        '<p><a class="ok-link" href="/nasil-calisir/">Kaynak, güncelleme ve hata payı</a></p></section>'
+        '<section class="manset"><div><h1>Kamu ilanları, son başvuru kaçmadan</h1>'
+        f'<p class="manset-satir">{_sayilar_cumlesi(acik, b, True)}</p>'
+        '<p class="giris">kamuilan.sbb.gov.tr\'deki personel alımlarını günde dört kez '
+        "çekiyoruz. Her ilanın kadrosunu, şartlarını ve son gününü tek sayfada gör; yeni "
+        "ilan çıkınca uygulama haber versin.</p>"
+        f"</div>{cagri}</section>"
+        f"{_ana_bolumler(acik, b)}"
+        '<section class="bolum" aria-labelledby="kategori">'
+        f'{bolum_bas("kategori", "Kategoriler")}{kategori_dizini(veriler)}</section>'
+        '<section class="bolum" aria-labelledby="nasil"><div class="bolum-bas"><h2 id="nasil">'
+        '<a class="baslik-link" href="/nasil-calisir/">Bu sayfalar nasıl hazırlanıyor?</a></h2></div>'
+        '<p class="giris">İlanları günde dört kez kamuilan.sbb.gov.tr\'den alıyor, bilgileri '
+        "yapay zekâyla çıkarıyoruz; hata olabilir. Her ilan sayfasında resmî ilan metnine "
+        'giden link var. <a href="/nasil-calisir/">Kaynak, güncelleme ve hata payı</a></p></section>'
     )
     bas = SayfaBasi(
         baslik=f"Kamu İlanları {b.yil}: Güncel Memur ve Kamu Personel Alımları | Kamu",
         aciklama=kisalt(
             f"{sayi_tr(len(acik))} açık kamu ilanı: memur, sözleşmeli, işçi ve akademik "
-            "personel alımları. Kadro, şartlar ve son başvuru tarihleri her gün güncel."
+            "personel alımları. Kadro, şartlar ve son başvuru tarihleri günde dört kez güncel."
         ),
         yol="/",
         kampanya=KAMPANYA_ANA,
     )
     return b.sayfa(bas, govde, (web_sitesi(), organizasyon()))
 
+
+# --- Bilgi sayfaları ve 404 ---------------------------------------------------
 
 def bilgi_sayfasi(bilgi: BilgiSayfasi, b: Baglam) -> str:
     bas, govde, kirinti_ogeleri = bilgi_sayfasi_parcalari(bilgi)
@@ -566,10 +275,10 @@ def bilgi_sayfasi(bilgi: BilgiSayfasi, b: Baglam) -> str:
 
 def sayfa_404(b: Baglam) -> str:
     govde = (
-        f"{ust_etiket('SAYFA BULUNAMADI')}<h1>Aradığın sayfa burada değil</h1>"
+        '<article class="okuma"><h1>Aradığın sayfa burada değil</h1>'
         '<p class="giris">İlan kaldırılmış ya da başvuru süresi uzun zaman önce dolmuş '
-        "olabilir. Güncel ilanlara aşağıdan ulaşabilirsin.</p>"
-        '<p><a class="dugme dugme-dolu" href="/">Güncel ilanlara git</a></p>'
+        "olabilir. Güncel ilanlara ana sayfadan ulaşabilirsin.</p>"
+        '<p><a class="dugme dugme-dolu" href="/">Güncel ilanlara git</a></p></article>'
     )
     bas = SayfaBasi(
         baslik="Sayfa bulunamadı | Kamu",

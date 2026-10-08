@@ -220,7 +220,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     Merkez(
         yol="/kpss-p93-ilanlari/",
         ad="KPSS P93 ilanları",
-        baslik="KPSS P93 İlanları {yil}: Ön Lisans Mezunu Kamu Alımları",
+        baslik="KPSS P93 İlanları {yil}: Ön Lisans Puanıyla Başvurulan Alımlar",
         h1="KPSS P93 puanıyla başvurulan ilanlar",
         etiket="PUAN TÜRÜ",
         giris=(
@@ -235,7 +235,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     Merkez(
         yol="/kpss-p94-ilanlari/",
         ad="KPSS P94 ilanları",
-        baslik="KPSS P94 İlanları {yil}: Lise Mezunu Kamu Alımları",
+        baslik="KPSS P94 İlanları {yil}: Ortaöğretim Puanıyla Başvurulan Alımlar",
         h1="KPSS P94 puanıyla başvurulan ilanlar",
         etiket="PUAN TÜRÜ",
         giris=(
@@ -250,14 +250,14 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     Merkez(
         yol="/son-basvurusu-yaklasan-ilanlar/",
         ad="Son başvurusu yaklaşanlar",
-        baslik="Son Başvurusu Yaklaşan Kamu İlanları {yil}: Bu Hafta Bitenler",
+        baslik="Son Başvurusu Yaklaşan Kamu İlanları {yil}: Önümüzdeki 7 Günde Bitenler",
         h1="Son başvurusu yaklaşan ilanlar",
         etiket="SON GÜNLER",
         giris=(
             f"Son başvuru tarihi önümüzdeki {YAKLASAN_GUN} gün içinde dolan açık kamu "
-            "ilanları, en yakın tarihten başlayarak. Başvuru çoğu ilanda son gün mesai "
-            "bitiminde ya da e-Devlet'te gece yarısı kapanır; saat bilgisi her ilanın "
-            "resmî metninde yazar, son güne bırakmamak en güvenlisidir."
+            "ilanları, en yakın tarihten başlayarak. Bazı ilanlarda başvuru son gün mesai "
+            "bitiminde, bazılarında gece yarısı kapanır. Saati resmî ilandan kontrol et, "
+            "son güne bırakma."
         ),
         filtre=_yaklasan,
         grup="ozel",
@@ -273,7 +273,7 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
         giris=(
             f"Son {HAFTA_GUN} günde kamuilan.sbb.gov.tr'de yayımlanan ve Kamu'ya eklenen "
             "personel alım ilanları, en yeniden eskiye. Liste günde dört kez "
-            "güncellenir; iptal ve düzeltme duyuruları listeye alınmaz."
+            "güncellenir. İptal ve düzeltme duyuruları ayrı ilan olarak gösterilmez."
         ),
         filtre=_bu_hafta,
         grup="ozel",
@@ -296,9 +296,9 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
     ),
     Merkez(
         yol="/kpss-siz-kamu-ilanlari/",
-        ad="KPSS puan türü belirtilmemiş ilanlar",
-        baslik="KPSS'siz Kamu İlanları {yil}: Puan Türü İstenmeyen Alımlar",
-        h1="KPSS puan türü belirtilmemiş kamu ilanları",
+        ad="KPSS şartı belirtilmeyenler",
+        baslik="KPSS Şartı Belirtilmeyen Kamu İlanları {yil}",
+        h1="KPSS şartı belirtilmeyen kamu ilanları",
         etiket="PUAN TÜRÜ",
         giris=(
             "İlan metninden KPSS puan türü çıkarılamayan, akademik olmayan kamu "
@@ -309,8 +309,8 @@ SABIT_MERKEZLER: tuple[Merkez, ...] = (
         filtre=_kpss_siz,
         grup="ozel",
         uyari=(
-            "KPSS şartı ilan metninde belirtilmemiş olabilir; bu liste KPSS'siz "
-            "başvuru garantisi vermez. Başvurmadan önce resmî ilanı kontrol edin."
+            "KPSS şartı ilan metninde belirtilmemiş olabilir. Bu liste KPSS'siz başvuru "
+            "garantisi vermez; başvurmadan önce resmî ilanı kontrol et."
         ),
     ),
 )
@@ -346,7 +346,7 @@ def kurum_merkezi(slug: str, ad: str, kalici: bool) -> Merkez:
         etiket="KURUM",
         giris=(
             f"{ad} tarafından kamuilan.sbb.gov.tr'de yayımlanan personel alım "
-            "ilanları. Liste günde dört kez güncellenir; iptal ve düzeltme "
+            "ilanları. Liste günde dört kez güncellenir. İptal ve düzeltme "
             "duyuruları ayrı ilan olarak gösterilmez."
         ),
         filtre=_kurum(slug),
@@ -365,6 +365,7 @@ class MerkezVerisi:
     merkez: Merkez
     acik: tuple[Ilan, ...]
     kapanan: tuple[Ilan, ...] = ()
+    kapanan_sayisi: int = 0
 
     @property
     def indekslenebilir(self) -> bool:

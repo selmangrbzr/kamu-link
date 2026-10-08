@@ -45,6 +45,34 @@ def tr_buyuk(metin: str) -> str:
     return metin.replace("i", "İ").replace("ı", "I").upper()
 
 
+_BILINEN_KISALTMALAR = frozenset({
+    "İETT", "TÜİK", "TÜBİTAK", "BOTAŞ", "ASELSAN", "MEB", "DSİ", "MİT", "TOKİ", "ÖSYM", "YÖK",
+    "İŞKUR", "AFAD", "TİKA", "DHMİ", "EÜAŞ", "TEİAŞ", "TEDAŞ", "MKE", "MTA", "TMO", "ÇAYKUR",
+    "TÜRKSAT", "ASFAT", "SEDDK", "EPDK", "BDDK", "SPK", "SGK", "TRT", "PTT", "TCDD",
+})
+
+
+def _kisaltma_mi(kelime: str) -> bool:
+    """"SGK", "TCDD" gibi tamamen büyük harfli kısaltmalar (2-5 harf, az ünlü)."""
+    harfler = kelime.strip(".,()")
+    if harfler in _BILINEN_KISALTMALAR:
+        return True
+    # Listede olmayanlarda yalnızca ünlüsüz yazımlar ("TCDD", "SGK"); "TÜRK", "VAN" gibi
+    # kelimeler başlık düzenine geçer.
+    if not (2 <= len(harfler) <= 5) or not harfler.isalpha() or harfler != tr_buyuk(harfler):
+        return False
+    return not any(h in "aeıioöuü" for h in tr_kucuk(harfler))
+
+
+def kurum_basligi(metin: str) -> str:
+    """Kurum adı başlık düzeni; "SGK", "TCDD", "TÜBİTAK" gibi kısaltmalar büyük harf kalır."""
+    kaynak = " ".join(metin.split()).split(" ")
+    hedef = tr_baslik(metin).split(" ")
+    if len(kaynak) != len(hedef):
+        return " ".join(hedef)
+    return " ".join(k if _kisaltma_mi(k) else h for k, h in zip(kaynak, hedef))
+
+
 def tr_baslik(metin: str) -> str:
     """Her kelimenin ilk harfini büyütür; bağlaçlar (ilk kelime değilse) küçük kalır."""
     kucuk = tr_kucuk(" ".join(metin.split()))
@@ -131,3 +159,72 @@ def kalan_gun_metni(bitis: date, bugun: date) -> str:
     if kalan == 1:
         return "Yarın son gün"
     return f"{kalan} gün kaldı"
+
+
+# --- Türkçe ekler ve metin düzeltmeleri (sitede görünen cümleler için) ---------
+
+_UNLULER = "aeıioöuü"
+_KALIN = "aıou"
+_SERT = "fstkçşhp"
+# "3 Ağustos'ta", "8 Ekim'de" (bulunma) ve "22 Ekim'i" (belirtme) ekleri.
+_AY_BULUNMA = dict(zip(_AYLAR, ("ta", "ta", "ta", "da", "ta", "da", "da", "ta", "de", "de", "da", "ta")))
+_AY_BELIRTME = dict(zip(_AYLAR, ("ı", "ı", "ı", "ı", "ı", "ı", "u", "u", "ü", "i", "ı", "ı")))
+
+
+def tarih_de(gun: date) -> str:
+    """"3 Ağustos'ta", "8 Ekim'de"."""
+    ay = _AYLAR[gun.month - 1]
+    return f"{gun.day} {ay}'{_AY_BULUNMA[ay]}"
+
+
+def tarih_i(gun: date) -> str:
+    """"22 Ekim'i" (… kaçırma)."""
+    ay = _AYLAR[gun.month - 1]
+    return f"{gun.day} {ay}'{_AY_BELIRTME[ay]}"
+
+
+def ayrilma_eki(ad: str) -> str:
+    """Kurum adına ayrılma eki: "Gelir İdaresi Başkanlığı'ndan", "Rize Belediyesi'nden"."""
+    kucuk = tr_kucuk(ad.strip())
+    if not kucuk:
+        return ad
+    son_unlu = next((h for h in reversed(kucuk) if h in _UNLULER), "e")
+    unlu = "a" if son_unlu in _KALIN else "e"
+    if kucuk[-1] in _UNLULER:  # tamlama eki (-ı/-i/-u/-ü) sonrası kaynaştırma n
+        return f"{ad}'nd{unlu}n"
+    sessiz = "t" if kucuk[-1] in _SERT else "d"
+    return f"{ad}'{sessiz}{unlu}n"
+
+
+def tarih_araligi_tr(bas: date, bitis: date) -> str:
+    """"20-22 Ekim 2026", "28 Eylül-12 Ekim 2026", "30 Aralık 2026-5 Ocak 2027"."""
+    if bas.year != bitis.year:
+        return f"{tarih_tr(bas, yil=True)}-{tarih_tr(bitis, yil=True)}"
+    if bas.month != bitis.month:
+        return f"{tarih_tr(bas)}-{tarih_tr(bitis, yil=True)}"
+    return f"{bas.day}-{tarih_tr(bitis, yil=True)}"
+
+
+def cumle_duzeni(metin: str) -> str:
+    """Kelimelerin %60'ı büyük harfle başlıyorsa (Title Case) cümle düzenine çevirir."""
+    kelimeler = [k for k in metin.split() if k[:1].isalpha()]
+    if len(kelimeler) < 3:
+        return metin
+    buyuk = sum(1 for k in kelimeler if k[0].isupper())
+    if buyuk / len(kelimeler) < 0.6:
+        return metin
+    kucuk = tr_kucuk(metin)
+    return tr_buyuk(kucuk[:1]) + kucuk[1:]
+
+
+def sart_parcalari(metin: str) -> list[str]:
+    """Şart/belge metnini ";" ile maddelere böler; "≥" -> "en az", "≤" -> "en çok"."""
+    duz = (
+        metin.replace("≥", " en az ").replace(">=", " en az ")
+        .replace("≤", " en çok ").replace("<=", " en çok ")
+    )
+    duz = re.sub(r"\s*;\s*", "; ", duz)
+    duz = re.sub(r"(?<=\w)/(?=\w{3,})", " / ", duz) if re.search(r"\w{4,}/\w{4,}", duz) else duz
+    duz = " ".join(duz.split())
+    parcalar = [p.strip(" .") for p in duz.split(";") if p.strip(" .")]
+    return [tr_buyuk(p[:1]) + p[1:] for p in parcalar]

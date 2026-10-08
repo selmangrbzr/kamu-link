@@ -5,6 +5,7 @@ yaz() sonucu _site/ klasörüne döker ve statik dosyaları kopyalar.
 """
 
 import dataclasses
+from collections import Counter
 import logging
 import shutil
 from collections.abc import Iterable
@@ -126,8 +127,15 @@ def merkez_verileri(sayfali: list[Ilan], acik: list[Ilan], simdi: datetime) -> l
         uyanlar = tuple(i for i in acik if merkez.filtre(i, simdi))
         if not uyanlar and not merkez.kalici:
             continue
-        kapanan = tuple(i for i in kapanmis if merkez.filtre(i, simdi))[:KAPANAN_ADET]
-        sonuc.append(MerkezVerisi(merkez=merkez, acik=uyanlar, kapanan=kapanan))
+        kapanan = tuple(i for i in kapanmis if merkez.filtre(i, simdi))
+        sonuc.append(
+            MerkezVerisi(
+                merkez=merkez,
+                acik=uyanlar,
+                kapanan=kapanan[:KAPANAN_ADET],
+                kapanan_sayisi=len(kapanan),
+            )
+        )
     return sonuc
 
 
@@ -162,13 +170,15 @@ def derle(
         kurum_yollari={
             v.merkez.yol.split("/")[2]: v.merkez.yol for v in veriler if v.merkez.grup == "kurum"
         },
+        acik_sayisi=len(acik),
     )
+    kurum_acik = Counter(i.kurum_slug for i in acik)
     derleme = Derleme(acik=len(acik), kapali=len(sayfali) - len(acik))
 
     basliklar = ilan_basliklari(sayfali, bugun)
     for ilan in sayfali:
         derleme.sayfalar[ilan.yol] = ilan_sayfasi(
-            ilan, baglam, benzer_ilanlar(ilan, acik), basliklar[ilan.id]
+            ilan, baglam, benzer_ilanlar(ilan, acik), basliklar[ilan.id], kurum_acik[ilan.kurum_slug]
         )
         if ilan.basvuru_bitis >= bugun:
             derleme.sitemap.append((ilan.yol, ilan.eklenme_tarihi))

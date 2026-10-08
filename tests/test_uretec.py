@@ -161,7 +161,7 @@ def test_acik_ilan_sayfasi_indekslenir_ve_jobposting_icerir():
     assert 'content="index,follow' in html
     assert any(v["@type"] == "JobPosting" for v in jsonld_listesi(html))
     assert '<link rel="canonical" href="https://kamuuygulama.me/ilan/' in html
-    assert "otomatik çıkarılmıştır" in html
+    assert "otomatik çıkarıyoruz" in html
     assert "ct=seo" in html and "utm_campaign%3Dseo" in html
     assert 'href="https://kamuilan.sbb.gov.tr/ilanDetay.aspx?kod=abc"' in html
 
@@ -196,14 +196,14 @@ def test_eklenme_gunu_turkiye_saatine_gore():
     gece = Ilan.from_satir(satir(eklenme_tarihi="2026-10-07T22:30:00+00:00"))  # TR 8 Ekim 01:30
     assert gece.eklenme_gunu.isoformat() == "2026-10-08"
     html = derle([satir(eklenme_tarihi="2026-10-07T22:30:00+00:00")], SIMDI, en_az_acik=1).sayfalar[gece.yol]
-    assert "8 EKİM EKLENDİ" in html
+    assert "8 Ekim'de eklendi" in html
 
 
 def test_kontenjan_sehri_gosterilir_ve_aciklamada_tekrar_yok():
     kontenjan = [{"pozisyon": "Gelir Uzman Yardımcısı", "sehir": il, "toplam": 5} for il in ("Adana", "Van", "Muş")]
     ilan_satiri = satir(kisi_sayisi=15, kontenjan=kontenjan)
     html = derle([ilan_satiri], SIMDI, en_az_acik=1).sayfalar[Ilan.from_satir(ilan_satiri).yol]
-    assert '<span class="kadro-sehir">Van</span>' in html
+    assert '<li><span>Van</span><b>5</b></li>' in html
     aciklama = is_ilani(Ilan.from_satir(ilan_satiri))["description"]
     assert aciklama.count("Gelir Uzman Yardımcısı") == 1
 

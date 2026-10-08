@@ -1,7 +1,7 @@
-"""Ortak HTML iskeleti ve bileşenler.
+"""Ortak HTML iskeleti ve bileşenler ("editoryal bülten" tasarımı).
 
 Tüm veri html.escape'ten geçer (e()). Sayfalar JS kullanmaz; mağaza linkleri
-kampanya parametreleriyle derleme anında yazılır.
+kampanya parametreleriyle derleme anında yazılır. Büyük harfli etiket yoktur.
 """
 
 import html
@@ -24,9 +24,10 @@ PLAY_PAKET = "com.selman.memur_ilanlari"
 KAMPANYA_SEO = "seo"
 FONT_AGIRLIKLARI = (400, 700, 800)
 UYARI = (
-    "Bilgiler ilan metninden otomatik çıkarılmıştır, hata içerebilir; başvurmadan "
-    "önce resmî ilanı kontrol edin. Kamu bağımsız bir uygulamadır, resmî kurum değildir."
+    "Bu bilgileri ilan metninden otomatik çıkarıyoruz, hata olabilir. Başvurmadan önce "
+    "resmî ilanı oku. Kamu bağımsız bir uygulama, resmî kurum değil."
 )
+OK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
 
 
 def e(metin: object) -> str:
@@ -47,13 +48,12 @@ def magaza_linkleri(kampanya: str) -> tuple[str, str]:
     return ios, android
 
 
-def magaza_butonlari(kampanya: str, sinif: str = "") -> str:
+def magaza_butonlari(kampanya: str) -> str:
     ios, android = magaza_linkleri(kampanya)
-    siniflar = f"magazalar {sinif}".strip()
     return (
-        f'<div class="{siniflar}">'
-        f'<a class="dugme dugme-dolu" href="{e(android)}">Google Play\'den indir</a>'
-        f'<a class="dugme dugme-cizgi" href="{e(ios)}">App Store\'dan indir</a>'
+        '<div class="magazalar">'
+        f'<a class="dugme dugme-dolu" href="{e(android)}">Google Play</a>'
+        f'<a class="dugme dugme-cizgi" href="{e(ios)}">App Store</a>'
         "</div>"
     )
 
@@ -73,20 +73,19 @@ class SayfaBasi:
     yol: str
     indekslenebilir: bool = True
     og_turu: str = "website"
-    bolum: str = ""
     kampanya: str = KAMPANYA_SEO
     uygulama_argumani: bool = False
+    kunye_alt: str | None = None  # künyenin ikinci satırı; None ise "N açık ilan"
 
 
-def _kunye(bolum: str, simdi: datetime) -> str:
-    gun = tarih_tr(simdi.astimezone(TR_SAAT).date())
-    sag = f"{e(bolum)} · {gun}" if bolum else gun
+def _kunye(simdi: datetime, alt_satir: str) -> str:
+    gun = tarih_tr(simdi.astimezone(TR_SAAT).date(), yil=True)
     return (
         '<header class="kunye"><div class="kap kunye-ic">'
         f'<a class="marka" href="/"><img src="{IKON_KUCUK}" width="32" height="32" alt="">'
         f"<span>{SITE_ADI}</span></a>"
-        f'<span class="kunye-sag">{sag}</span>'
-        "</div></header>"
+        f'<span class="kunye-sag"><b>{gun}</b><br>{e(alt_satir)}</span>'
+        '</div><div class="cift-cizgi"></div></header>'
     )
 
 
@@ -95,6 +94,7 @@ ALT_LINKLER = (
     ("Sözleşmeli personel", "/sozlesmeli-personel-alimlari/"),
     ("İşçi alımları", "/isci-alimlari/"),
     ("Akademik personel", "/akademik-personel-alimlari/"),
+    ("Askeri personel", "/askeri-personel-alimlari/"),
     ("Belediye alımları", "/belediye-personel-alimlari/"),
     ("Lise mezunu", "/lise-mezunu-kamu-ilanlari/"),
     ("Ön lisans mezunu", "/onlisans-mezunu-kamu-ilanlari/"),
@@ -114,35 +114,40 @@ HAKKINDA_LINKLERI = (
 
 
 def _link_listesi(linkler: tuple[tuple[str, str], ...]) -> str:
-    return "".join(f'<li><a href="{yol}">{e(ad)}</a></li>' for ad, yol in linkler)
+    return "<ul>" + "".join(f'<li><a href="{e(yol)}">{e(ad)}</a></li>' for ad, yol in linkler) + "</ul>"
 
 
-def _alt_bilgi(simdi: datetime, mevcut_yollar: frozenset[str]) -> str:
+def _kolofon(simdi: datetime, mevcut_yollar: frozenset[str], kampanya: str) -> str:
+    """Alt bilgi: künyenin aynası (çift çizgi), kategoriler, hakkında, uygulama, tek dipnot."""
     kategoriler = tuple((ad, yol) for ad, yol in ALT_LINKLER if yol in mevcut_yollar)
+    yarim = (len(kategoriler) + 1) // 2
+    ios, android = magaza_linkleri(kampanya)
     zaman = simdi.astimezone(TR_SAAT)
     return (
-        '<footer class="alt"><div class="kap">'
-        '<div class="alt-gruplar">'
-        '<nav aria-labelledby="alt-kategori"><h2 class="alt-baslik" id="alt-kategori">Kategoriler</h2>'
-        f'<ul class="alt-linkler">{_link_listesi(kategoriler)}</ul></nav>'
-        '<nav aria-labelledby="alt-hakkinda"><h2 class="alt-baslik" id="alt-hakkinda">Kamu hakkında</h2>'
-        f'<ul class="alt-linkler">{_link_listesi(HAKKINDA_LINKLERI)}</ul></nav>'
+        '<footer class="kolofon"><div class="kap"><div class="cift-cizgi"></div>'
+        '<div class="kolofon-izgara">'
+        '<nav aria-labelledby="k-kategori"><h2 id="k-kategori">Kategoriler</h2>'
+        '<div class="kolofon-sutun">'
+        f"{_link_listesi(kategoriler[:yarim])}{_link_listesi(kategoriler[yarim:])}</div></nav>"
+        '<nav aria-labelledby="k-hakkinda"><h2 id="k-hakkinda">Kamu hakkında</h2>'
+        f"{_link_listesi(HAKKINDA_LINKLERI)}</nav>"
+        '<div><h2>Uygulama</h2>'
+        f'<ul><li><a href="{e(android)}">Google Play</a></li><li><a href="{e(ios)}">App Store</a></li></ul></div>'
         "</div>"
-        f'<p class="dipnot">{e(UYARI)}</p>'
-        f'<p class="dipnot">Son güncelleme: {tarih_tr(zaman.date(), yil=True)} '
-        f"{zaman:%H:%M}. Kaynak: kamuilan.sbb.gov.tr ilanları.</p>"
+        f'<p class="dipnot">{e(UYARI)} Kaynak: kamuilan.sbb.gov.tr. Son güncelleme '
+        f"{tarih_tr(zaman.date(), yil=True)}, {zaman:%H:%M}.</p>"
         "</div></footer>"
     )
 
 
 def alt_cubuk(kampanya: str) -> str:
-    """Mobilde altta sabit uygulama çubuğu (JS'siz; masaüstünde CSS ile gizlenir)."""
+    """Mobilde altta sabit uygulama çubuğu (JS'siz; geniş ekranda CSS ile gizlenir)."""
     ios, android = magaza_linkleri(kampanya)
     return (
         '<div class="alt-cubuk" role="complementary" aria-label="Kamu uygulaması">'
-        '<span class="alt-cubuk-metin"><b>Uygulamada aç</b><span>ya da ücretsiz indir</span></span>'
-        f'<a class="mini" href="{e(android)}">Android</a>'
-        f'<a class="mini" href="{e(ios)}">iPhone</a>'
+        '<span class="alt-cubuk-metin"><b>Son günü kaçırma</b>Ücretsiz bildirim al</span>'
+        f'<a class="mini-dolu" href="{e(android)}">Google Play</a>'
+        f'<a class="mini-cizgi" href="{e(ios)}">App Store</a>'
         "</div>"
     )
 
@@ -160,6 +165,7 @@ def sayfa(
     simdi: datetime,
     mevcut_yollar: frozenset[str],
     jsonld: tuple[dict, ...] = (),
+    kunye_alt: str = "",
 ) -> str:
     kanonik = SITE_URL + bas.yol
     robots = "index,follow,max-image-preview:large" if bas.indekslenebilir else "noindex,follow"
@@ -189,10 +195,10 @@ def sayfa(
         '<meta property="og:image:height" content="630">'
         '<meta property="og:image:alt" content="Kamu: kamu personel alım ilanları">'
         '<meta name="twitter:card" content="summary_large_image">'
-        f"{yapisal}</head><body>"
-        f"{_kunye(bas.bolum, simdi)}"
+        f'{yapisal}</head><body class="cubuklu">'
+        f"{_kunye(simdi, bas.kunye_alt or kunye_alt)}"
         f'<main class="kap">{govde}</main>'
-        f"{_alt_bilgi(simdi, mevcut_yollar)}"
+        f"{_kolofon(simdi, mevcut_yollar, bas.kampanya)}"
         f"{alt_cubuk(bas.kampanya)}"
         "</body></html>\n"
     )
@@ -205,8 +211,9 @@ def kirinti(ogeler: list[tuple[str, str]]) -> str:
     return f'<nav class="kirinti" aria-label="Konum">{" / ".join(parcalar)}</nav>'
 
 
-def ust_etiket(metin: str) -> str:
-    return f'<p class="ust-etiket"><span class="cubuk" aria-hidden="true"></span>{e(metin)}</p>'
+def bolum_bas(kimlik: str, baslik: str, sag: str = "") -> str:
+    """Gazete bölüm çizgisiyle başlık; sağda link ya da kısa not."""
+    return f'<div class="bolum-bas"><h2 id="{kimlik}">{e(baslik)}</h2>{sag}</div>'
 
 
 def acil_mi(ilan: Ilan, bugun: date) -> bool:
@@ -219,35 +226,80 @@ def rozet(ilan: Ilan, bugun: date) -> str:
     return f'<span class="rozet">{e(kalan_gun_metni(ilan.basvuru_bitis, bugun))}</span>'
 
 
-def ilan_karti(ilan: Ilan, bugun: date) -> str:
-    kadro = f"<b>{sayi_tr(ilan.kisi_sayisi)}</b> kadro · " if ilan.kisi_sayisi else ""
-    kalan = (ilan.basvuru_bitis - bugun).days
-    if kalan < 0:
-        sure_html = ' · <span class="kapali-etiket">Süresi doldu</span>'
-    elif kalan > ACIL_GUN_SINIRI:
-        sure_html = f' · <span class="kalan">{kalan} gün</span>'
+def ilan_satiri(
+    ilan: Ilan,
+    bugun: date,
+    yeni_sinir: datetime | None = None,
+    tur: bool = True,
+    kurum: bool = True,
+) -> str:
+    """Liste satırı: solda kadro sayısı, sonra kurum, pozisyon ve meta."""
+    if ilan.kisi_sayisi:
+        sayi = f'<span class="satir-sayi"><b>{sayi_tr(ilan.kisi_sayisi)}</b><small>kadro</small></span>'
     else:
-        sure_html = ""
+        sayi = '<span class="satir-sayi yok"><small>Kadro<br>ilanda</small></span>'
+    meta = []
+    if yeni_sinir and ilan.eklenme_tarihi >= yeni_sinir:
+        meta.append('<span class="yeni">Yeni</span>')
+    if tur:
+        meta.append(f'<span class="tur" data-tur="{ilan.tur_kodu}">{e(ilan.tur_etiketi)}</span>')
+    kalan = (ilan.basvuru_bitis - bugun).days
+    meta.append(f"<span>Son başvuru {tarih_tr(ilan.basvuru_bitis)}</span>")
+    if kalan < 0:
+        meta.append('<span class="kapali-etiket">Süresi doldu</span>')
+    elif kalan <= ACIL_GUN_SINIRI:
+        meta.append(rozet(ilan, bugun))
+    else:
+        meta.append(f'<span class="kalan">{kalan} gün</span>')
+    if kurum:
+        baslik = (
+            f'<span class="satir-kurum">{e(ilan.kisa_kurum)}</span>'
+            f'<span class="satir-poz">{e(ilan.is_basligi)}</span>'
+        )
+    else:
+        baslik = f'<span class="satir-kurum">{e(ilan.is_basligi)}</span>'
     return (
-        f'<li class="kart" data-tur="{ilan.tur_kodu}"><a href="{ilan.yol}">'
-        f'<span class="kart-ust"><span class="tur">{e(ilan.tur_etiketi)}</span>'
-        f'<span class="kart-kurum">{e(ilan.kisa_kurum)}</span></span>'
-        f'<span class="kart-baslik">{e(ilan.is_basligi)}</span>'
-        f'<span class="kart-alt">{kadro}Son başvuru {tarih_tr(ilan.basvuru_bitis)}'
-        f"{sure_html}{rozet(ilan, bugun)}</span>"
-        "</a></li>"
+        f'<li class="satir"><a href="{ilan.yol}">{sayi}{baslik}'
+        f'<span class="satir-meta">{"".join(meta)}</span></a></li>'
     )
 
 
-def ilan_listesi(ilanlar: list[Ilan], bugun: date) -> str:
-    return '<ul class="liste">' + "".join(ilan_karti(i, bugun) for i in ilanlar) + "</ul>"
+def ilan_listesi(
+    ilanlar: list[Ilan],
+    bugun: date,
+    yeni_sinir: datetime | None = None,
+    tur: bool = True,
+    kurum: bool = True,
+) -> str:
+    satirlar = "".join(ilan_satiri(i, bugun, yeni_sinir, tur, kurum) for i in ilanlar)
+    return f'<ul class="satirlar">{satirlar}</ul>'
 
 
-def uygulama_cagrisi(baslik: str, metin: str, kampanya: str) -> str:
+def _gun(ilan: Ilan, bugun: date) -> str:
+    kalan = (ilan.basvuru_bitis - bugun).days
+    if kalan == 0:
+        return '<span class="gun bugun"><b>Bugün</b><small>son gün</small></span>'
+    alt = "Yarın" if kalan == 1 else f"{kalan} gün"
+    return f'<span class="gun"><b>{tarih_tr(ilan.basvuru_bitis)}</b><small>{alt}</small></span>'
+
+
+def siki_liste(ilanlar: list[Ilan], bugun: date) -> str:
+    """Yan sütun listesi: kurum, pozisyon ve sağda son gün."""
+    return '<ul class="sikilar">' + "".join(
+        f'<li><a href="{i.yol}"><span class="k">{e(i.kisa_kurum)}</span>'
+        f'<span class="p">{e(i.is_basligi)}</span>{_gun(i, bugun)}</a></li>'
+        for i in ilanlar
+    ) + "</ul>"
+
+
+def uygulama_cagrisi(
+    baslik: str, metin: str, kampanya: str, sinif: str = "", kimlik: str = "cagri"
+) -> str:
+    """Lacivert kapanış kutusu; turkuaz ok dairesi sayfadaki tek dolu turkuaz öğe."""
+    siniflar = f"cagri {sinif}".strip()
     return (
-        '<section class="cagri" aria-labelledby="cagri-baslik">'
-        f'<h2 id="cagri-baslik">{e(baslik)}</h2>'
-        f"<p>{e(metin)}</p>"
-        f"{magaza_butonlari(kampanya)}"
-        "</section>"
+        f'<section class="{siniflar}" aria-labelledby="{kimlik}">'
+        f'<div class="cagri-bas"><span class="cagri-ok">{OK_SVG}</span><div>'
+        f'<h2 id="{kimlik}">{e(baslik)}</h2><p>{e(metin)}</p></div></div>'
+        f"{magaza_butonlari(kampanya)}</section>"
     )

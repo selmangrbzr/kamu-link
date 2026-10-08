@@ -9,7 +9,7 @@ import html
 import json
 from typing import Any
 
-from .metin import katla, tarih_tr, tr_kucuk
+from .metin import katla, sart_parcalari, tarih_tr, tr_kucuk
 from .model import EGITIM_KATEGORISI, Ilan
 
 SITE_URL = "https://kamuuygulama.me"
@@ -61,20 +61,20 @@ def aciklama_html(ilan: Ilan) -> str:
         satirlar.append(f"Görev yeri: {', '.join(ilan.sehirler)}")
     satirlar.append(f"Son başvuru: {tarih_tr(ilan.basvuru_bitis, yil=True)}")
     if ilan.basvuru_yeri:
-        satirlar.append(f"Başvuru yeri: {ilan.basvuru_yeri}")
+        satirlar.append(f"Başvuru yeri: {ilan.basvuru_yeri_temiz}")
     parcalar.append("<ul>" + "".join(f"<li>{_e(s)}</li>" for s in satirlar) + "</ul>")
 
     pozisyonlar = list(dict.fromkeys(k.pozisyon for k in ilan.kontenjan if k.pozisyon))
     if pozisyonlar:
         maddeler = "".join(f"<li>{_e(p)}</li>" for p in pozisyonlar)
         parcalar.append(f"<p>Pozisyonlar:</p><ul>{maddeler}</ul>")
-    if ilan.ozel_sartlar:
-        parcalar.append(f"<p>Özel şartlar: {_e(ilan.ozel_sartlar)}</p>")
-    if ilan.basvuru_belgeleri:
-        parcalar.append(f"<p>Başvuru belgeleri: {_e(ilan.basvuru_belgeleri)}</p>")
+    for baslik, metin in (("Özel şartlar", ilan.ozel_sartlar), ("Başvuru belgeleri", ilan.basvuru_belgeleri)):
+        if metin:
+            maddeler = "".join(f"<li>{_e(m)}</li>" for m in sart_parcalari(metin))
+            parcalar.append(f"<p>{baslik}:</p><ul>{maddeler}</ul>")
     parcalar.append(
-        "<p>Bilgiler ilan metninden otomatik çıkarılmıştır; başvurmadan önce "
-        "resmî ilanı kontrol edin.</p>"
+        "<p>Bu bilgileri ilan metninden otomatik çıkarıyoruz, hata olabilir. "
+        "Başvurmadan önce resmî ilanı oku.</p>"
     )
     return "".join(parcalar)
 

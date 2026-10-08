@@ -77,7 +77,7 @@ def test_ilan_basligi_kalibi_ve_uzunsa_kisa_kurum():
     assert baslik(html) == "BDDK Sözleşmeli Bilişim Personeli Alımı (15 Kadro): Şartlar ve Başvuru | Kamu"
     kisa = satir(id=kimlik(9), kurum="SGK", pozisyon="5 MEMUR ALACAK", kisi_sayisi=5, ilan_turu="Memur")
     html2 = derle([kisa], SIMDI, en_az_acik=1).sayfalar[Ilan.from_satir(kisa).yol]
-    assert baslik(html2) == "Sgk Memur Alımı (5 Kadro): Şartlar ve Başvuru | Kamu"
+    assert baslik(html2) == "SGK Memur Alımı (5 Kadro): Şartlar ve Başvuru | Kamu"
 
 
 def test_belediye_ilaninda_belediyesi_varyanti_gecer():
@@ -124,15 +124,19 @@ def test_apple_itunes_app_her_sayfada_ilanda_app_argument():
     assert "app-argument" not in derleme.sayfalar["/memur-alimlari/"]
 
 
-def test_mobil_alt_cubuk_ve_ilan_ustu_magaza_butonlari():
+def test_mobil_alt_cubuk_ve_ilan_ozet_sirasi():
     html = derle([satir()], SIMDI, en_az_acik=1).sayfalar[Ilan.from_satir(satir()).yol]
-    assert 'class="alt-cubuk"' in html and "Uygulamada aç" in html
-    veri, magaza, bilgi = (html.index(x) for x in ('class="veri"', 'class="ilan-magaza"', 'id="bilgi"'))
-    assert veri < magaza < bilgi
+    assert 'class="alt-cubuk"' in html and "Son günü kaçırma" in html
+    assert "Uygulamada aç" not in html
+    # Tek DOM: başlık, özet (defter, resmî kaynak, çağrı), gövde.
+    sira = [html.index(x) for x in ('class="ilan-bas"', 'class="defter"', 'class="resmi"',
+                                     'class="cagri ilan-cagri"', 'class="govde"')]
+    assert sira == sorted(sira)
     assert "viewport-fit=cover" in html
     css = (STATIK / "kamu.css").read_text(encoding="utf-8")
     assert "safe-area-inset-bottom" in css
-    assert re.search(r"body \{ padding-bottom: calc\(var\(--alt-cubuk\)", css)
+    assert "body.cubuklu { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }" in css
+    assert ".ilan-izgara > .ozet { display: contents; }" in css
 
 
 # --- 4. Güven sayfaları ---------------------------------------------------------
@@ -215,7 +219,7 @@ def test_kpss_siz_merkez_akademigi_ve_kpssli_ilani_almaz_uyari_verir():
     assert Ilan.from_satir(akademik).yol not in html
     assert Ilan.from_satir(satir()).yol not in html
     assert "KPSS şartı ilan metninde belirtilmemiş olabilir" in html
-    assert "resmî ilanı kontrol edin" in html
+    assert "resmî ilanı kontrol et" in html
 
 
 # --- 6. Küçük düzeltmeler -----------------------------------------------------

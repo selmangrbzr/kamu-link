@@ -18,6 +18,7 @@ from .metin import (
     ascii_slug,
     iptal_veya_duzeltme_mi,
     kisalt_slug,
+    kurum_basligi,
     pozisyon_temizle,
     tr_baslik,
     tr_kucuk,
@@ -157,7 +158,7 @@ def kisa_kurum_adi(kurum: str) -> str:
     for onek, kisa in _KISA_ADLAR:
         if kucuk.startswith(onek):
             return kisa
-    tam = tr_baslik(kurum)
+    tam = kurum_basligi(kurum)
     return belediye_varyanti(tam) or tam
 
 
@@ -246,14 +247,18 @@ class Ilan:
     @property
     def pozisyon_adi(self) -> str | None:
         ad = pozisyon_temizle(self.pozisyon, self.kurum, self.kisi_sayisi)
-        # "5 ADET ÖĞRETİM ELEMANI" kalıbı; slug'a dokunulmaz (adres kalıcılığı).
-        if ad and ad.startswith("Adet "):
-            ad = ad[len("Adet "):] or None
-        return ad
+        if not ad:
+            return None
+        # "5 ADET ÖĞRETİM ELEMANI", "PERSONEL (MÜHENDİS) ALACAK" gibi kalıplar başlığa
+        # sızmasın. Slug'a dokunulmaz (adres kalıcılığı).
+        ad = re.sub(r"\bAdet\b", " ", ad)
+        ad = re.sub(r"\b(Alınacaktır|Alacaktır|Alacak)\b|\bAlımı$", " ", ad)
+        ad = " ".join(ad.split())
+        return ad.strip(" ,.-") or None
 
     @property
     def kurum_adi(self) -> str:
-        return tr_baslik(self.kurum)
+        return kurum_basligi(self.kurum)
 
     @property
     def kisa_kurum(self) -> str:
@@ -263,6 +268,13 @@ class Ilan:
     def belediye_adi(self) -> str | None:
         """Belediye ilanlarında aramaya uygun ad: "Mucur Belediyesi"."""
         return belediye_varyanti(self.kurum_adi)
+
+    @property
+    def basvuru_yeri_temiz(self) -> str | None:
+        """Uzun tire (—) virgüle çevrilir."""
+        if not self.basvuru_yeri:
+            return None
+        return re.sub(r"\s*—\s*", ", ", self.basvuru_yeri)
 
     @property
     def kurum_slug(self) -> str:
