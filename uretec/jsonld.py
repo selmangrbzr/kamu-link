@@ -76,13 +76,14 @@ def aciklama_html(ilan: Ilan) -> str:
 
 
 def _konumlar(ilan: Ilan) -> list[dict[str, Any]]:
+    # İlçe verisi yok; addressLocality olarak il merkezi (il adı) yazılır.
     iller = ilan.iller or (None,)
     return [
         {
             "@type": "Place",
             "address": {
                 "@type": "PostalAddress",
-                **({"addressRegion": il} if il else {}),
+                **({"addressLocality": il, "addressRegion": il} if il else {}),
                 "addressCountry": "TR",
             },
         }

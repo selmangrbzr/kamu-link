@@ -127,7 +127,8 @@ def test_jobposting_zorunlu_alanlar_ve_tarih_bicimleri():
     datetime.fromisoformat(veri["validThrough"])
     assert veri["hiringOrganization"]["name"] == "Bankacılık Düzenleme ve Denetleme Kurumu Başkanlığı"
     assert veri["jobLocation"][0]["address"] == {
-        "@type": "PostalAddress", "addressRegion": "İstanbul", "addressCountry": "TR",
+        "@type": "PostalAddress", "addressLocality": "İstanbul", "addressRegion": "İstanbul",
+        "addressCountry": "TR",
     }
     assert veri["directApply"] is False
     assert veri["totalJobOpenings"] == 15
