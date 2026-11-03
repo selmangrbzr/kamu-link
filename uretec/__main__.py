@@ -15,6 +15,8 @@ from pathlib import Path
 from .derle import EN_AZ_ACIK_ILAN, KOK, DerlemeHatasi, derle, yaz
 from .model import bugun_tr
 from .pdf_arsivi import ArsivHatasi, arsivle, pdf_satirlari_cek
+from .uygulama_verisi import liste_cek
+from .uygulama_verisi import yaz as uygulama_verisi_yaz
 from .veri import VeriHatasi, ilanlari_cek
 
 log = logging.getLogger("uretec")
@@ -60,7 +62,11 @@ def main(argv: list[str] | None = None) -> int:
         en_az = int(os.environ.get("URETEC_EN_AZ_ACIK_ILAN", EN_AZ_ACIK_ILAN))
         derleme = derle(satirlar, simdi, en_az_acik=en_az)
         yaz(derleme, args.cikti)
-        # yaz() çıktı klasörünü temizlediği için arşiv ondan sonra kopyalanır.
+        # yaz() çıktı klasörünü temizlediği için uygulama dosyaları ve PDF arşivi
+        # ondan sonra eklenir.
+        if not args.json:
+            aktif, gecmis = liste_cek(url, anahtar, bugun_tr(simdi))
+            uygulama_verisi_yaz(args.cikti, aktif, gecmis, simdi)
         if args.pdf_onbellek and not args.json:
             arsivle(
                 pdf_satirlari_cek(url, anahtar),

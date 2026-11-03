@@ -1,0 +1,49 @@
+[
+  {"ad": "kontenjan yok", "kontenjan": null, "beklenen": []},
+  {"ad": "bos liste", "kontenjan": [], "beklenen": []},
+  {
+    "ad": "pozisyon anahtari",
+    "kontenjan": [{"pozisyon": "Sistem Uzmanı", "toplam": 2}, {"pozisyon": "Yazılım Geliştirici", "toplam": 1}],
+    "beklenen": ["Sistem Uzmanı", "Yazılım Geliştirici"]
+  },
+  {
+    "ad": "yedek anahtarlar sirayla",
+    "kontenjan": [
+      {"unvan": "Mühendis"},
+      {"kadro": "Tekniker"},
+      {"gorev": "Şoför"},
+      {"görev": "Aşçı"}
+    ],
+    "beklenen": ["Mühendis", "Tekniker", "Şoför", "Aşçı"]
+  },
+  {
+    "ad": "bos ve null pozisyonda yedege duser",
+    "kontenjan": [{"pozisyon": "  ", "unvan": "Hemşire"}, {"pozisyon": null, "kadro": "Ebe"}],
+    "beklenen": ["Hemşire", "Ebe"]
+  },
+  {
+    "ad": "metin kirpilir",
+    "kontenjan": [{"pozisyon": "  Memur  "}],
+    "beklenen": ["Memur"]
+  },
+  {
+    "ad": "buyuk kucuk harf tekillestirme ilk yazimi korur",
+    "kontenjan": [{"pozisyon": "Memur"}, {"pozisyon": "MEMUR"}, {"pozisyon": "memur"}],
+    "beklenen": ["Memur"]
+  },
+  {
+    "ad": "turkce I ve İ",
+    "kontenjan": [{"pozisyon": "İşçi"}, {"pozisyon": "İŞÇİ"}, {"pozisyon": "IŞIK TEKNİSYENİ"}, {"pozisyon": "ışık teknisyeni"}],
+    "beklenen": ["İşçi", "IŞIK TEKNİSYENİ", "ışık teknisyeni"]
+  },
+  {
+    "ad": "sayi metne cevrilir",
+    "kontenjan": [{"pozisyon": 5}],
+    "beklenen": ["5"]
+  },
+  {
+    "ad": "hic metni olmayan satir atlanir",
+    "kontenjan": [{"toplam": 3}, {"pozisyon": "Veteriner Hekim"}],
+    "beklenen": ["Veteriner Hekim"]
+  }
+]

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from .model import _ID_KALIBI
-from .veri import SAYFA_BOYUTU, VeriHatasi, _istek
+from .veri import sayfali_cek
 
 log = logging.getLogger(__name__)
 
@@ -70,27 +70,11 @@ def indir(adres: str) -> bytes | None:
 
 def pdf_satirlari_cek(supabase_url: str, anahtar: str) -> list[dict[str, Any]]:
     """PDF adresi dolu tüm ilanlar (durumdan bağımsız: uygulama hepsini açıyor)."""
-    taban = f"{supabase_url.rstrip('/')}/rest/v1/ilanlar"
-    satirlar: list[dict[str, Any]] = []
-    while True:
-        sorgu = urllib.parse.urlencode(
-            {
-                "select": "id,pdf_url",
-                "pdf_url": "not.is.null",
-                "order": "id.asc",
-                "limit": SAYFA_BOYUTU,
-                "offset": len(satirlar),
-            }
-        )
-        parca, toplam = _istek(f"{taban}?{sorgu}", anahtar)
-        satirlar.extend(parca)
-        if not parca or (toplam is not None and len(satirlar) >= toplam):
-            break
-        if toplam is None and len(parca) < SAYFA_BOYUTU:
-            break
-    if toplam is not None and len(satirlar) != toplam:
-        raise VeriHatasi(f"Eksik PDF listesi: {len(satirlar)} satır, beklenen {toplam}.")
-    return satirlar
+    return sayfali_cek(
+        supabase_url,
+        anahtar,
+        {"select": "id,pdf_url", "pdf_url": "not.is.null", "order": "id.asc"},
+    )
 
 
 def _kaynaklar(ilan_id: str, pdf_url: str, supabase_url: str) -> list[str]:

@@ -67,33 +67,45 @@ def _istek(url: str, anahtar: str) -> tuple[list[dict[str, Any]], int | None]:
     raise VeriHatasi("Supabase isteği başarısız.")
 
 
-def ilanlari_cek(supabase_url: str, anahtar: str, bugun: date) -> list[dict[str, Any]]:
-    """Zenginleştirmesi bitmiş ve son başvurusu son 60 günden yeni ilanlar."""
+def sayfali_cek(
+    supabase_url: str,
+    anahtar: str,
+    parametreler: dict[str, str],
+    en_fazla: int | None = None,
+) -> list[dict[str, Any]]:
+    """`ilanlar`'dan PostgREST sorgusu; sayfa sayfa, eksiksiz (ya da ilk `en_fazla` satır)."""
     if not supabase_url.startswith("https://"):
         raise VeriHatasi("SUPABASE_URL https:// ile başlamalı.")
-    sinir = (bugun - timedelta(days=SURESI_GECMIS_GUN)).isoformat()
+    taban = f"{supabase_url.rstrip('/')}/rest/v1/ilanlar"
     satirlar: list[dict[str, Any]] = []
-    kaydirma = 0
     toplam: int | None = None
-    while True:
-        sorgu = urllib.parse.urlencode(
-            {
-                "select": SUTUNLAR,
-                "enrichment_durum": "eq.islendi",
-                "basvuru_bitis": f"gte.{sinir}",
-                "order": "id.asc",
-                "limit": SAYFA_BOYUTU,
-                "offset": kaydirma,
-            }
-        )
-        parca, toplam = _istek(f"{supabase_url.rstrip('/')}/rest/v1/ilanlar?{sorgu}", anahtar)
+    while en_fazla is None or len(satirlar) < en_fazla:
+        boyut = SAYFA_BOYUTU if en_fazla is None else min(SAYFA_BOYUTU, en_fazla - len(satirlar))
+        sorgu = urllib.parse.urlencode({**parametreler, "limit": boyut, "offset": len(satirlar)})
+        parca, toplam = _istek(f"{taban}?{sorgu}", anahtar)
         satirlar.extend(parca)
-        if not parca or (toplam is None and len(parca) < SAYFA_BOYUTU):
+        if not parca or (toplam is None and len(parca) < boyut):
             break
         if toplam is not None and len(satirlar) >= toplam:
             break
-        kaydirma += len(parca)
     # Sunucu max-rows ile sessizce kırparsa eksik veriyle yayın yapılmasın.
-    if toplam is not None and len(satirlar) != toplam:
-        raise VeriHatasi(f"Eksik veri: {len(satirlar)} satır çekildi, beklenen {toplam}.")
+    if toplam is not None:
+        beklenen = toplam if en_fazla is None else min(toplam, en_fazla)
+        if len(satirlar) != beklenen:
+            raise VeriHatasi(f"Eksik veri: {len(satirlar)} satır çekildi, beklenen {beklenen}.")
     return satirlar
+
+
+def ilanlari_cek(supabase_url: str, anahtar: str, bugun: date) -> list[dict[str, Any]]:
+    """Zenginleştirmesi bitmiş ve son başvurusu son 60 günden yeni ilanlar."""
+    sinir = (bugun - timedelta(days=SURESI_GECMIS_GUN)).isoformat()
+    return sayfali_cek(
+        supabase_url,
+        anahtar,
+        {
+            "select": SUTUNLAR,
+            "enrichment_durum": "eq.islendi",
+            "basvuru_bitis": f"gte.{sinir}",
+            "order": "id.asc",
+        },
+    )
