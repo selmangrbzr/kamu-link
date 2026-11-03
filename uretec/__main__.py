@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .derle import EN_AZ_ACIK_ILAN, KOK, DerlemeHatasi, derle, yaz
 from .model import bugun_tr
+from .pdf_arsivi import ArsivHatasi, arsivle, pdf_satirlari_cek
 from .veri import VeriHatasi, ilanlari_cek
 
 log = logging.getLogger("uretec")
@@ -34,6 +35,11 @@ def main(argv: list[str] | None = None) -> int:
     ayr.add_argument("--cikti", type=Path, default=KOK / "_site")
     ayr.add_argument("--json", type=Path, help="Supabase yerine yerel satır dosyası")
     ayr.add_argument("--env-dosyasi", type=Path, help="SUPABASE_* değişkenlerini içeren .env")
+    ayr.add_argument(
+        "--pdf-onbellek",
+        type=Path,
+        help="Verilirse ilan PDF'leri bu önbellekle _site/pdf/ altına arşivlenir (Supabase gerekir)",
+    )
     args = ayr.parse_args(argv)
 
     simdi = datetime.now(timezone.utc)
@@ -54,7 +60,16 @@ def main(argv: list[str] | None = None) -> int:
         en_az = int(os.environ.get("URETEC_EN_AZ_ACIK_ILAN", EN_AZ_ACIK_ILAN))
         derleme = derle(satirlar, simdi, en_az_acik=en_az)
         yaz(derleme, args.cikti)
-    except (DerlemeHatasi, VeriHatasi) as hata:
+        # yaz() çıktı klasörünü temizlediği için arşiv ondan sonra kopyalanır.
+        if args.pdf_onbellek and not args.json:
+            arsivle(
+                pdf_satirlari_cek(url, anahtar),
+                onbellek=args.pdf_onbellek,
+                cikti=args.cikti,
+                supabase_url=url,
+                simdi=simdi,
+            )
+    except (DerlemeHatasi, VeriHatasi, ArsivHatasi) as hata:
         log.error("%s", hata)
         return 1
 

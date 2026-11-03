@@ -126,7 +126,8 @@ def _detay_sunucusu_mu(sunucu: str) -> bool:
 
 
 def _pdf_sunucusu_mu(sunucu: str) -> bool:
-    return sunucu == "kamuilan.sbb.gov.tr" or sunucu.endswith(".supabase.co")
+    # kamuuygulama.me: PDF'ler egress için Supabase'ten sitemize taşınıyor (pdf_arsivi).
+    return sunucu in ("kamuilan.sbb.gov.tr", "kamuuygulama.me") or sunucu.endswith(".supabase.co")
 
 
 def _sayi(deger: Any) -> float | None:

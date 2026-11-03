@@ -38,11 +38,20 @@ jobs:
           mkdir -p indexnow
           curl -fsSL --max-time 30 -o indexnow/onceki.xml https://kamuuygulama.me/sitemap.xml || echo "Önceki sitemap alınamadı; tüm adresler yeni sayılacak."
 
+      # İlan PDF'leri build'ler arasında korunur: her dosya Supabase'ten en fazla
+      # bir kez indirilir (egress). Her koşu yeni anahtarla kaydeder, en yenisi geri yüklenir.
+      - name: PDF önbelleği
+        uses: actions/cache@v4
+        with:
+          path: pdf_onbellek
+          key: pdf-${{ github.run_id }}
+          restore-keys: pdf-
+
       - name: Siteyi üret
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: python -m uretec --cikti _site
+        run: python -m uretec --cikti _site --pdf-onbellek pdf_onbellek
 
       - uses: actions/upload-pages-artifact@v4
         with:
