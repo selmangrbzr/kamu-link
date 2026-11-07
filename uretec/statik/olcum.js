@@ -6,8 +6,21 @@
 (function () {
   if (location.hostname !== 'kamuuygulama.me') return;
 
+  // ?olcum=kapali ölçümü bu tarayıcıda kapatır, ?olcum=acik geri açar (gizlilik sayfası).
+  // Kayıt yalnızca ziyaretçi isterse yazılır; depolama kapalıysa o ziyaret için kapanır.
+  var istek = new URLSearchParams(location.search).get('olcum');
+  try {
+    if (istek === 'kapali') localStorage.setItem('olcum', 'kapali');
+    if (istek === 'acik') localStorage.removeItem('olcum');
+    if (localStorage.getItem('olcum') === 'kapali') return;
+  } catch (e) {
+    if (istek === 'kapali') return;
+  }
+
   var JETON = 'phc_CX2jMDMLxLAmegGjAXDvKDMm2jECtvrKHt9Q5xZkZrX4';
-  var SUNUCU = 'https://eu.i.posthog.com';
+  // Reklam engelleyiciler posthog.com'u engellediği için PostHog'un yönetilen
+  // ters vekili (Cloudflare) üzerinden kendi alt alan adımızı kullanıyoruz.
+  var SUNUCU = 'https://k.kamuuygulama.me';
 
   // Kütüphane yüklenene kadar çağrıları biriktiren saplama (resmî snippet'in sade hâli).
   var ph = (window.posthog = window.posthog || []);
@@ -21,12 +34,13 @@
     var betik = document.createElement('script');
     betik.async = true;
     betik.crossOrigin = 'anonymous';
-    betik.src = 'https://eu-assets.i.posthog.com/static/array.js';
+    betik.src = SUNUCU + '/static/array.js';
     document.head.appendChild(betik);
   }
 
   ph.init(JETON, {
     api_host: SUNUCU,
+    ui_host: 'https://eu.posthog.com',
     cookieless_mode: 'always',
     autocapture: false,
     capture_pageview: true,

@@ -173,6 +173,12 @@ BILGI_SAYFALARI: tuple[BilgiSayfasi, ...] = (
                 "yazılmıyor; adın, e-postan ya da seni doğrudan tanımlayan bir bilgi "
                 "toplanmıyor. IP adresi saklanmıyor. Veriler PostHog'un Avrupa Birliği'ndeki "
                 "sunucularında tutuluyor ve reklam ya da başka bir amaçla kullanılmıyor.",
+                "Ölçüm istekleri k.kamuuygulama.me adresinden geçiyor; bu adres, PostHog'un "
+                "Cloudflare üzerinde işlettiği bir yönlendirici. İstekleri yalnızca "
+                "PostHog'a iletiyor.",
+                'Ölçümü istemiyorsan <a href="/?olcum=kapali">bu bağlantıyla kapatabilirsin</a>. '
+                "Bu tercih yalnızca bu tarayıcıda geçerli; hatırlamak için tarayıcına tek bir "
+                'kayıt yazılıyor. Geri açmak için: <a href="/?olcum=acik">ölçümü aç</a>.',
             )
             + _bolum(
                 "uygulama", "Uygulama",

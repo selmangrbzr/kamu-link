@@ -37,10 +37,21 @@ def test_betik_yalnizca_canli_alan_adinda_ve_cerezsiz_calisir():
     js = (STATIK / "olcum.js").read_text(encoding="utf-8")
     assert "location.hostname !== 'kamuuygulama.me'" in js
     assert "cookieless_mode: 'always'" in js
-    assert "api_host: SUNUCU" in js and "https://eu.i.posthog.com" in js
+    # Reklam engelleyiciler posthog.com'u engelliyor; hem olaylar hem kütüphane kendi alt alan adımızdan.
+    assert "api_host: SUNUCU" in js and "var SUNUCU = 'https://k.kamuuygulama.me'" in js
+    assert "SUNUCU + '/static/array.js'" in js
+    assert "ui_host: 'https://eu.posthog.com'" in js
+    assert "i.posthog.com" not in js
     assert "autocapture: false" in js
     assert "disable_session_recording: true" in js
     assert "phc_" in js and "phx_" not in js  # yalnızca herkese açık proje jetonu
+
+
+def test_olcumu_kapatma_secenegi_kutuphaneden_once_calisir():
+    js = (STATIK / "olcum.js").read_text(encoding="utf-8")
+    assert "get('olcum')" in js
+    assert "localStorage.getItem('olcum') === 'kapali'" in js
+    assert js.index("localStorage.getItem('olcum')") < js.index("document.createElement('script')")
 
 
 def test_yaz_olcum_betigini_kopyalar_ig_yonlendirmesine_eklemez(tmp_path: Path):
@@ -52,6 +63,7 @@ def test_yaz_olcum_betigini_kopyalar_ig_yonlendirmesine_eklemez(tmp_path: Path):
 
 def test_gizlilik_sayfasi_olcumu_anlatir():
     gizlilik = derle([satir()], SIMDI, en_az_acik=1).sayfalar["/gizlilik/"]
-    for ifade in ("PostHog", "çerezsiz", "Avrupa Birliği", "IP adresi saklanmıyor"):
+    for ifade in ("PostHog", "çerezsiz", "Avrupa Birliği", "IP adresi saklanmıyor",
+                  "Cloudflare", 'href="/?olcum=kapali"'):
         assert ifade in gizlilik
     assert "analiz aracı kullanmıyor" not in gizlilik
