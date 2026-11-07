@@ -246,11 +246,11 @@ def _resmi(ilan: Ilan) -> str:
     linkler = []
     if ilan.pdf_url:
         linkler.append(
-            f'<a class="dugme dugme-cizgi" href="{e(ilan.pdf_url)}" rel="noopener nofollow">İlan metni (PDF)</a>'
+            f'<a class="dugme dugme-cizgi" href="{e(ilan.pdf_url)}" rel="noopener nofollow" data-olay="pdf">İlan metni (PDF)</a>'
         )
     if ilan.detay_link:
         linkler.append(
-            f'<a class="dugme dugme-cizgi" href="{e(ilan.detay_link)}" rel="noopener">Resmî ilan sayfası</a>'
+            f'<a class="dugme dugme-cizgi" href="{e(ilan.detay_link)}" rel="noopener" data-olay="resmi">Resmî ilan sayfası</a>'
         )
     if not linkler:
         return ""

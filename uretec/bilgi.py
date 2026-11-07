@@ -13,7 +13,7 @@ ILETISIM_EPOSTA = "selmangurbuzer@gmail.com"
 UYGULAMA_GIZLILIK = "https://selmangrbzr.github.io/memur-ilanlari/privacy-policy.html"
 INSTAGRAM = "https://www.instagram.com/kamu.uygulama/"
 # İçerik elle değiştirildiğinde güncellenir (sitemap lastmod).
-BILGI_GUNCELLEME = date(2026, 10, 8)
+BILGI_GUNCELLEME = date(2026, 11, 7)
 KAMPANYA = "site"
 _EPOSTA_LINK = f'<a href="mailto:{ILETISIM_EPOSTA}">{ILETISIM_EPOSTA}</a>'
 
@@ -143,22 +143,36 @@ BILGI_SAYFALARI: tuple[BilgiSayfasi, ...] = (
         yol="/gizlilik/",
         ad="Gizlilik",
         baslik="Gizlilik: Çerez ve Veri Kullanımı | Kamu",
-        aciklama="kamuuygulama.me çerez ya da analiz aracı kullanmıyor. Uygulamanın gizlilik politikası ve barındırma bilgisi.",
+        aciklama=(
+            "kamuuygulama.me çerez ve reklam kullanmıyor; yalnızca çerezsiz, anonim bir "
+            "ziyaret ölçümü var. Uygulamanın gizlilik politikası ve barındırma bilgisi."
+        ),
         h1="Gizlilik",
         govde=(
-            '<p class="giris">Bu site çerez, reklam ya da analiz aracı kullanmıyor ve '
-            "senden hiçbir bilgi istemiyor.</p>"
+            '<p class="giris">Bu site çerez ya da reklam kullanmıyor ve senden hiçbir '
+            "bilgi istemiyor. Sitenin işe yarayıp yaramadığını görmek için yalnızca "
+            "çerezsiz, anonim bir ziyaret ölçümü yapıyoruz.</p>"
             + _bolum(
                 "site", "Site",
-                "Sayfalar statik dosyalar; giriş, form ya da takip kodu yok. Yazı tipleri "
-                "de bu sitenin kendi sunucusundan yükleniyor, üçüncü taraf bir hizmete "
-                "istek gitmiyor.",
+                "Sayfalar statik dosyalar; giriş ya da form yok. Yazı tipleri de bu "
+                "sitenin kendi sunucusundan yükleniyor.",
                 "Site GitHub Pages üzerinde barındırılıyor. GitHub, hizmetin güvenliği ve "
                 "işletimi için ziyaretçilerin IP adresi gibi teknik kayıtları tutabilir; bu "
                 "kayıtlar GitHub'ın kendi gizlilik bildirimine tabi.",
                 "Mağaza butonları Apple App Store ve Google Play'e gidiyor. Bu bağlantılar, "
                 "hangi kanaldan gelindiğini mağazaya bildiren bir kampanya etiketi içeriyor; "
                 "kişisel bilgi içermiyor.",
+            )
+            + _bolum(
+                "olcum", "Ziyaret ölçümü",
+                "Hangi sayfaların açıldığını, ilan metnine ya da resmî ilan sayfasına "
+                "geçilip geçilmediğini ve mağaza butonlarına tıklanıp tıklanmadığını "
+                "PostHog ile ölçüyoruz. Amaç, aradığını bulmanı kolaylaştıracak "
+                "sayfaları anlamak.",
+                "Ölçüm çerezsiz çalışıyor: tarayıcına çerez ya da başka bir kayıt "
+                "yazılmıyor; adın, e-postan ya da seni doğrudan tanımlayan bir bilgi "
+                "toplanmıyor. IP adresi saklanmıyor. Veriler PostHog'un Avrupa Birliği'ndeki "
+                "sunucularında tutuluyor ve reklam ya da başka bir amaçla kullanılmıyor.",
             )
             + _bolum(
                 "uygulama", "Uygulama",

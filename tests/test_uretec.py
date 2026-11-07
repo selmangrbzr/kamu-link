@@ -292,7 +292,7 @@ def test_kpss_puan_turu_ayristirma():
 
 def test_ana_sayfada_yonlendirme_yok():
     html = derle([satir()], SIMDI, en_az_acik=1).sayfalar["/"]
-    assert "<script src" not in html
+    assert "yonlendir.js" not in html
     assert "location" not in html
     assert 'http-equiv="refresh"' not in html
     assert 'content="index,follow' in html

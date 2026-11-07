@@ -1,7 +1,8 @@
 """Ortak HTML iskeleti ve bileşenler ("editoryal bülten" tasarımı).
 
-Tüm veri html.escape'ten geçer (e()). Sayfalar JS kullanmaz; mağaza linkleri
-kampanya parametreleriyle derleme anında yazılır. Büyük harfli etiket yoktur.
+Tüm veri html.escape'ten geçer (e()). Sayfa işlevi JS'e bağlı değildir; tek betik
+/olcum.js (ertelenmiş, çerezsiz ölçüm) ve ölçülen linkler data-olay ile işaretlidir.
+Mağaza linkleri kampanya parametreleriyle derleme anında yazılır. Büyük harfli etiket yoktur.
 """
 
 import html
@@ -16,6 +17,7 @@ from .rehber_icerik import REHBER_KOK, REHBERLER
 
 ACIL_GUN_SINIRI = 3
 CSS_YOLU = "/kamu.css"
+OLCUM_YOLU = "/olcum.js"
 IKON = "/kamu-icon-512.png"
 IKON_KUCUK = "/kamu-ikon-96.png"
 OG_GORSEL = "/og-kamu.png"
@@ -50,8 +52,8 @@ def magaza_butonlari(kampanya: str) -> str:
     ios, android = magaza_linkleri(kampanya)
     return (
         '<div class="magazalar">'
-        f'<a class="dugme dugme-dolu" href="{e(android)}">Google Play</a>'
-        f'<a class="dugme dugme-cizgi" href="{e(ios)}">App Store</a>'
+        f'<a class="dugme dugme-dolu" href="{e(android)}" data-olay="magaza">Google Play</a>'
+        f'<a class="dugme dugme-cizgi" href="{e(ios)}" data-olay="magaza">App Store</a>'
         "</div>"
     )
 
@@ -134,7 +136,8 @@ def _kolofon(simdi: datetime, mevcut_yollar: frozenset[str], kampanya: str) -> s
         '<nav aria-labelledby="k-hakkinda"><h2 id="k-hakkinda">Kamu hakkında</h2>'
         f"{_link_listesi(HAKKINDA_LINKLERI)}</nav>"
         '<div><h2>Uygulama</h2>'
-        f'<ul><li><a href="{e(android)}">Google Play</a></li><li><a href="{e(ios)}">App Store</a></li></ul></div>'
+        f'<ul><li><a href="{e(android)}" data-olay="magaza">Google Play</a></li>'
+        f'<li><a href="{e(ios)}" data-olay="magaza">App Store</a></li></ul></div>'
         "</div>"
         f'<p class="dipnot">{e(UYARI)}</p>'
         "</div></footer>"
@@ -147,8 +150,8 @@ def alt_cubuk(kampanya: str) -> str:
     return (
         '<div class="alt-cubuk" role="complementary" aria-label="Kamu uygulaması">'
         '<span class="alt-cubuk-metin"><b>Son günü kaçırma</b>Ücretsiz bildirim al</span>'
-        f'<a class="mini-dolu" href="{e(android)}">Google Play</a>'
-        f'<a class="mini-cizgi" href="{e(ios)}">App Store</a>'
+        f'<a class="mini-dolu" href="{e(android)}" data-olay="magaza">Google Play</a>'
+        f'<a class="mini-cizgi" href="{e(ios)}" data-olay="magaza">App Store</a>'
         "</div>"
     )
 
@@ -183,6 +186,7 @@ def sayfa(
         f"{apple_uygulama_meta(kanonik if bas.uygulama_argumani else None)}"
         f"{_font_onyukleme()}"
         f'<link rel="stylesheet" href="{CSS_YOLU}">'
+        f'<script src="{OLCUM_YOLU}" defer></script>'
         f'<link rel="icon" type="image/png" href="{IKON_KUCUK}">'
         f'<link rel="apple-touch-icon" href="{IKON}">'
         f'<meta property="og:title" content="{e(bas.baslik)}">'
