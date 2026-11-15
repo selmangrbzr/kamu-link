@@ -257,12 +257,19 @@ def sitemap_xml(girdiler: list[tuple[str, datetime]]) -> str:
     )
 
 
+_KAPALI_YOLLAR = """Disallow: /pdf/
+Disallow: /veri/
+Disallow: /uygulama/
+"""
+
 ROBOTS_TXT = f"""# kamuuygulama.me
 # Arama, cevap motoru ve eğitim tarayıcılarının hepsine açık.
 # Kendi grubu olan bot "*" grubunu okumaz; bu yüzden her grupta Allow: / var.
+# /pdf/ resmî ilan metinlerinin kopyası, /veri/ ve /uygulama/ mobil uygulamanın
+# JSON'u: taranmaz (kopya içerik sinyali olmasın). Uygulama robots.txt okumaz.
 
 User-agent: *
-Allow: /
+{_KAPALI_YOLLAR}Allow: /
 
 # Arama ve cevap motoru dizinleri
 User-agent: Googlebot
@@ -271,13 +278,13 @@ User-agent: Applebot
 User-agent: OAI-SearchBot
 User-agent: PerplexityBot
 User-agent: Claude-SearchBot
-Allow: /
+{_KAPALI_YOLLAR}Allow: /
 
 # Kullanıcı isteğiyle sayfa açan ajanlar
 User-agent: ChatGPT-User
 User-agent: Claude-User
 User-agent: Perplexity-User
-Allow: /
+{_KAPALI_YOLLAR}Allow: /
 
 # Model eğitimi: marka ve ilan verisi model belleğine girebilsin diye açık
 User-agent: GPTBot
@@ -285,7 +292,7 @@ User-agent: ClaudeBot
 User-agent: Google-Extended
 User-agent: Applebot-Extended
 User-agent: CCBot
-Allow: /
+{_KAPALI_YOLLAR}Allow: /
 
 Sitemap: {SITE_URL}/sitemap.xml
 """

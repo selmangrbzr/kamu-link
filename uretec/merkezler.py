@@ -4,7 +4,8 @@ Her merkezin elle yazılmış, özgün bir giriş metni vardır; sayfa ayrıca o
 veriden özet cümleler üretir.
 
 - Sabit merkezler ve kalıcı kurumlar adreslerini korur: açık ilan sayısı
-  eşiğin altına düşerse "şu an açık ilan yok" der ve noindex olur.
+  eşiğin altına düşerse "şu an açık ilan yok" der. Konu merkezleri (tür, eğitim,
+  puan) son kapananlarla indekste kalır; diğerleri noindex olur.
 - Şehir ve diğer kurum sayfaları yalnızca açık ilan varken üretilir.
 """
 
@@ -19,6 +20,8 @@ from .model import ILLER, Ilan, bugun_tr
 MERKEZ_INDEKS_ESIGI = 2
 SEHIR_INDEKS_ESIGI = 3
 KURUM_INDEKS_ESIGI = 2
+# Eşik uygulanmayan kalıcı konu merkezleri (ilan türü, eğitim, KPSS puan türü).
+KONU_GRUPLARI = frozenset({"tur", "egitim", "puan"})
 YAKLASAN_GUN = 7
 HAFTA_GUN = 7
 
@@ -389,6 +392,10 @@ class MerkezVerisi:
 
     @property
     def indekslenebilir(self) -> bool:
+        # Konu merkezleri eşikle index/noindex arasında gidip gelmez; açık ilan yokken
+        # son kapananlar ve giriş metniyle dolu kalır. Hiç ilanı olmayan konu boş sayılır.
+        if self.merkez.grup in KONU_GRUPLARI:
+            return bool(self.acik or self.kapanan)
         return len(self.acik) >= self.merkez.en_az_indeks
 
     @property

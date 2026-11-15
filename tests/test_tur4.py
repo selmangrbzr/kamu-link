@@ -181,19 +181,22 @@ def test_merkez_meta_aciklamasinda_surec_cumlesi_yok_veri_cumlesi_var():
 # --- 8. robots.txt ---------------------------------------------------------------------
 
 def test_robots_txt_birebir():
+    kapali = "Disallow: /pdf/\nDisallow: /veri/\nDisallow: /uygulama/\n"
     beklenen = (
         "# kamuuygulama.me\n"
         "# Arama, cevap motoru ve eğitim tarayıcılarının hepsine açık.\n"
-        "# Kendi grubu olan bot \"*\" grubunu okumaz; bu yüzden her grupta Allow: / var.\n\n"
-        "User-agent: *\nAllow: /\n\n"
+        "# Kendi grubu olan bot \"*\" grubunu okumaz; bu yüzden her grupta Allow: / var.\n"
+        "# /pdf/ resmî ilan metinlerinin kopyası, /veri/ ve /uygulama/ mobil uygulamanın\n"
+        "# JSON'u: taranmaz (kopya içerik sinyali olmasın). Uygulama robots.txt okumaz.\n\n"
+        f"User-agent: *\n{kapali}Allow: /\n\n"
         "# Arama ve cevap motoru dizinleri\n"
         "User-agent: Googlebot\nUser-agent: Bingbot\nUser-agent: Applebot\n"
-        "User-agent: OAI-SearchBot\nUser-agent: PerplexityBot\nUser-agent: Claude-SearchBot\nAllow: /\n\n"
+        f"User-agent: OAI-SearchBot\nUser-agent: PerplexityBot\nUser-agent: Claude-SearchBot\n{kapali}Allow: /\n\n"
         "# Kullanıcı isteğiyle sayfa açan ajanlar\n"
-        "User-agent: ChatGPT-User\nUser-agent: Claude-User\nUser-agent: Perplexity-User\nAllow: /\n\n"
+        f"User-agent: ChatGPT-User\nUser-agent: Claude-User\nUser-agent: Perplexity-User\n{kapali}Allow: /\n\n"
         "# Model eğitimi: marka ve ilan verisi model belleğine girebilsin diye açık\n"
         "User-agent: GPTBot\nUser-agent: ClaudeBot\nUser-agent: Google-Extended\n"
-        "User-agent: Applebot-Extended\nUser-agent: CCBot\nAllow: /\n\n"
+        f"User-agent: Applebot-Extended\nUser-agent: CCBot\n{kapali}Allow: /\n\n"
         "Sitemap: https://kamuuygulama.me/sitemap.xml\n"
     )
     assert robots_txt() == beklenen

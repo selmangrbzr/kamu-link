@@ -256,19 +256,29 @@ def test_sabit_merkez_bosken_de_uretilir_ama_noindex_ve_sitemap_disi():
     assert "/sehir/ankara/" not in derleme.sayfalar  # şehirlerde eski davranış
 
 
-def test_esik_alti_merkez_noindex_esik_ustu_indekslenir():
+def test_konu_merkezi_tek_ilanla_da_indekslenir():
+    # Konu merkezleri (tür, eğitim, puan) eşiğe göre index/noindex arasında gidip gelmez.
     tek = derle([satir()], SIMDI, en_az_acik=1)
-    assert 'content="noindex,follow"' in tek.sayfalar["/sozlesmeli-personel-alimlari/"]
-    iki = derle(iki_ilan(), SIMDI, en_az_acik=1)
-    assert 'content="index,follow' in iki.sayfalar["/sozlesmeli-personel-alimlari/"]
-    assert "/sozlesmeli-personel-alimlari/" in {y for y, _ in iki.sitemap}
+    assert 'content="index,follow' in tek.sayfalar["/sozlesmeli-personel-alimlari/"]
+    assert "/sozlesmeli-personel-alimlari/" in {y for y, _ in tek.sitemap}
 
 
-def test_yalnizca_suresi_gecmis_ilani_olan_merkez_kapananlari_gosterir():
+def test_ozel_merkez_esik_alti_noindex_esik_ustu_indekslenir():
+    belediye = {"kurum": "Kadıköy Belediye Başkanlığı"}
+    tek = derle([satir(**belediye)], SIMDI, en_az_acik=1)
+    assert 'content="noindex,follow"' in tek.sayfalar["/belediye-personel-alimlari/"]
+    iki = derle(iki_ilan(**belediye), SIMDI, en_az_acik=1)
+    assert 'content="index,follow' in iki.sayfalar["/belediye-personel-alimlari/"]
+    assert "/belediye-personel-alimlari/" in {y for y, _ in iki.sitemap}
+
+
+def test_yalnizca_suresi_gecmis_ilani_olan_konu_merkezi_kapananlarla_indekslenir():
     gecmis_memur = satir(id="eeee3333ffffeeee3333ffffeeee3333", ilan_turu="Memur", basvuru_bitis="2026-09-30")
-    html = derle([satir(), gecmis_memur], SIMDI, en_az_acik=1).sayfalar["/memur-alimlari/"]
+    derleme = derle([satir(), gecmis_memur], SIMDI, en_az_acik=1)
+    html = derleme.sayfalar["/memur-alimlari/"]
     assert "Şu an açık ilan yok" in html and "Son kapanan ilanlar" in html
-    assert 'content="noindex,follow"' in html
+    assert 'content="index,follow' in html
+    assert "/memur-alimlari/" in {y for y, _ in derleme.sitemap}
 
 
 def test_az_ilanli_sehir_sayfasi_noindex_ve_sitemap_disi():
